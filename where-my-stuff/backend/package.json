@@ -1,0 +1,32 @@
+{
+  "name": "where-my-stuff-backend",
+  "version": "1.0.0",
+  "description": "Gmail-based package tracker API with Indian carriers priority",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "googleapis": "^130.0.0",
+    "sql.js": "^1.10.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "package-tracker",
+    "gmail",
+    "indian-carriers",
+    "delhivery",
+    "dtdc",
+    "ekart",
+    "bluedart"
+  ],
+  "author": "Ben",
+  "license": "MIT"
+}

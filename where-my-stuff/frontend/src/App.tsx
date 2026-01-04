@@ -139,6 +139,10 @@ function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+        const sessionId = params.get('session');
+        if (sessionId) {
+                localStorage.setItem('sessionId', sessionId);
+              }
     if (params.get('auth') === 'success') {
       checkAuthStatus();
       window.history.replaceState({}, '', window.location.pathname);
@@ -151,7 +155,8 @@ function App() {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/status`, { credentials: 'include' });
+          const sessionId = localStorage.getItem('sessionId');
+      const response = await fetch(`${API_BASE_URL}/auth/status`, headers: sessionId ? { 'x-session-id': sessionId } : {});
       const data = await response.json();
       if (data.authenticated) {
         setIsAuthenticated(true);
@@ -167,7 +172,7 @@ function App() {
 
   const fetchShipments = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/shipments`, { credentials: 'include' });
+      const response = await fetch(`${API_BASE_URL}/api/shipments`, headers: sessionId ? { 'x-session-id': sessionId } : {});
       if (response.ok) {
         const data = await response.json();
         const enriched = data.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://where-s-my-stuff.onrender.com';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
+
 // ============================================
 // ICONS
 // ============================================

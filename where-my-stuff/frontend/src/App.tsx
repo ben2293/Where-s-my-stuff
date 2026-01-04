@@ -172,6 +172,7 @@ function App() {
 
   const fetchShipments = async () => {
     try {
+          const sessionId = localStorage.getItem('sessionId');
       const response = await fetch(`${API_BASE_URL}/api/shipments`, { headers: sessionId ? { 'x-session-id': sessionId } : {} });
       if (response.ok) {
         const data = await response.json();

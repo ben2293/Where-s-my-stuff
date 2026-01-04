@@ -530,6 +530,11 @@ function formatShipmentForFrontend(shipment) {
 // ============================================
 // API ROUTES
 // ============================================
+// Health check route
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', message: 'Where\'s My Stuff API is running', timestamp: new Date().toISOString() });
+  });
+
 app.get('/api/shipments', async (req, res) => {
   const session = getSession(req);
   if (!session) {

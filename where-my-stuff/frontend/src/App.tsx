@@ -77,7 +77,7 @@ const brandConfig: Record<string, { gradient: string; logo: string; textColor: s
   },
   Ekart: {
     gradient: 'linear-gradient(135deg, #2874F0 0%, #5B9CF6 100%)',
-    logo: '',
+    logo: '/logos/ekart.png',
     textColor: '#FFFFFF',
   },
   default: {

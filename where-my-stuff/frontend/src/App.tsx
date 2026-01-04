@@ -6,15 +6,7 @@ const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost
 // ICONS
 // ============================================
 const PackageIcon = () => (
-  <svg className="app-icon" width="64" height="64" vimport { useState, useEffect } from 'react';
-
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
-
-// ============================================
-// ICONS
-// ============================================
-const PackageIcon = () => (
-  <svg className="app-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className="app-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M10 20 L32 8 L54 20 L32 32 L10 20Z" fill="#FFC975" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>
     <path d="M10 20 L10 44 L32 56 L32 32 L10 20Z" fill="#FFA841" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>
     <path d="M54 20 L54 44 L32 56 L32 32 L54 20Z" fill="#E57C36" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>

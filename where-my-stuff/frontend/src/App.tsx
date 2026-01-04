@@ -188,8 +188,8 @@ function App() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/shipments/refresh`, { method: 'POST', credentials: 'include' });
-      if (response.ok) {
+          const sessionId = localStorage.getItem('sessionId');
+    const response = await fetch(`${API_BASE_URL}/api/shipments/refresh`, { method: 'POST', headers: sessionId ? { 'x-session-id': sessionId } : {} });      if (response.ok) {
         const data = await response.json();
         const enriched = data.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));
         setShipments(enriched);

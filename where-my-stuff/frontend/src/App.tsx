@@ -37,6 +37,7 @@ const brandConfig: Record<string, { gradient: string; logo: string; textColor: s
   default: { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', logo: '', textColor: '#FFFFFF' },
 };
 
+// @ts-ignore - unused in new UI, kept for future use
 const categoryImages: Record<string, string> = {
   electronics: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=300&fit=crop',
   fashion: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=300&fit=crop',
@@ -49,6 +50,7 @@ const categoryImages: Record<string, string> = {
   default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
 };
 
+// @ts-ignore - unused in new UI, kept for future use
 function detectCategory(itemName: string, merchant: string): string {
   const lower = `${itemName.toLowerCase()} ${merchant.toLowerCase()}`;
   if (/phone|laptop|tablet|watch|headphone|earphone|charger|cable|electronic|gadget|camera|speaker/i.test(lower)) return 'electronics';

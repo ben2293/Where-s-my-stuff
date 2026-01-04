@@ -334,7 +334,8 @@ const INTERNATIONAL_CARRIERS = {
 };
 
 // Combine all carriers with Indian ones first
-const ALL_CARRIERS = INDIAN_CARRIERS;
+const ALL_CARRIERS = { ...INDIAN_CARRIERS, ...INTERNATIONAL_CARRIERS };
+
 // ============================================
 // EMAIL PARSING FUNCTION
 // ============================================

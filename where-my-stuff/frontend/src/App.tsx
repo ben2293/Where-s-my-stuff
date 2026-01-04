@@ -77,7 +77,27 @@ const brandConfig: Record<string, { gradient: string; logo: string; textColor: s
   },
   Ekart: {
     gradient: 'linear-gradient(135deg, #2874F0 0%, #5B9CF6 100%)',
-    logo: '',
+    '/logos/ekart.png'',
+    textColor: '#FFFFFF',
+  },
+    Shiprocket: {
+    gradient: 'linear-gradient(135deg, #5B2E8D 0%, #8B5FBF 100%)',
+    logo: '/logos/shiprocket.png',
+    textColor: '#FFFFFF',
+  },
+  Xpressbees: {
+    gradient: 'linear-gradient(135deg, #FF8C00 0%, #FFB347 100%)',
+    logo: '/logos/xpressbees.png',
+    textColor: '#000000',
+  },
+  Shadowfax: {
+    gradient: 'linear-gradient(135deg, #FF5722 0%, #FF8A65 100%)',
+    logo: '/logos/shadowfax.png',
+    textColor: '#FFFFFF',
+  },
+  'Ecom Express': {
+    gradient: 'linear-gradient(135deg, #2C3E8F 0%, #4A69BD 100%)',
+    logo: '/logos/ecomexpress.png',
     textColor: '#FFFFFF',
   },
   default: {

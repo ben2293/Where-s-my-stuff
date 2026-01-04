@@ -156,7 +156,7 @@ function App() {
   const checkAuthStatus = async () => {
     try {
           const sessionId = localStorage.getItem('sessionId');
-      const response = await fetch(`${API_BASE_URL}/auth/status`, headers: sessionId ? { 'x-session-id': sessionId } : {});
+      const response = await fetch(`${API_BASE_URL}/auth/status`, { headers: sessionId ? { 'x-session-id': sessionId } : {} });
       const data = await response.json();
       if (data.authenticated) {
         setIsAuthenticated(true);
@@ -172,7 +172,7 @@ function App() {
 
   const fetchShipments = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/shipments`, headers: sessionId ? { 'x-session-id': sessionId } : {});
+      const response = await fetch(`${API_BASE_URL}/api/shipments`, { headers: sessionId ? { 'x-session-id': sessionId } : {} });
       if (response.ok) {
         const data = await response.json();
         const enriched = data.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));

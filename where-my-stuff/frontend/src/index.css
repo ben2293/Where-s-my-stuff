@@ -43,6 +43,9 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ============================================
+   ANIMATIONS
+   ============================================ */
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
@@ -659,29 +662,29 @@ body {
   .app {
     padding: 1rem;
   }
-  
+
   .header {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .header-actions {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .shipments-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .shipment-card {
     min-height: 340px;
   }
-  
+
   .user-email {
     display: none;
   }
-  
+
   .filter-tabs {
     overflow-x: auto;
     flex-wrap: nowrap;
@@ -689,7 +692,7 @@ body {
     margin: 0 -1rem 1.5rem;
     padding: 0 1rem 0.5rem;
   }
-  
+
   .tab {
     flex-shrink: 0;
   }

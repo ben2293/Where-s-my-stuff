@@ -474,8 +474,7 @@ async function batchParseEmails(emails, apiKey) {
   let skipped = 0;
   let processed = 0;
   
-  for (let i = 0; i < emails.length; i++) {
-    const email = emails[i];
+for (let i = Math.max(0, emails.length - 5); i < emails.length; i++) {    const email = emails[i];
     
     const bodySnippet = (email.text || email.html || '').substring(0, 500);
     const confidence = getShippingConfidence(email.subject, email.from, bodySnippet);
@@ -487,6 +486,16 @@ async function batchParseEmails(emails, apiKey) {
     }
     
     console.log(`📦 Parse: "${email.subject?.substring(0, 40)}..."`);
+                                                                          // Check for relevant keywords (order/delivery/shipment)
+    const keywordRegex = /(order|delivery|shipment|tracking|shipped|delivered)/i;
+    const hasKeywords = keywordRegex.test(email.subject + ' ' + bodySnippet);
+    
+    if (!hasKeywords) {
+      console.log('⏭️  No relevant keywords found, using fallback');
+      results.push(createFallbackResponse(email));
+      skipped++;
+      continue;
+    }
     
     try {
       const parsed = await parseEmailWithGemini(email, apiKey);

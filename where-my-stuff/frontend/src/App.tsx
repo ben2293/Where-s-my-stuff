@@ -239,7 +239,8 @@ function App() {
             <PackageIcon />
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: '8px' }}>Where's My Stuff?</h1>
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>Track all your packages from Gmail in one beautiful place</p>
+          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>242
+            instantly</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '32px' }}>
             {['Amazon', 'Flipkart', 'Myntra', 'Nykaa', 'Delhivery', 'BlueDart'].map(name => (
               <span key={name} style={{ padding: '4px 12px', fontSize: '12px', fontWeight: '500', background: brandConfig[name]?.gradient || '#f3f4f6', color: brandConfig[name]?.textColor || '#374151', borderRadius: '9999px' }}>{name}</span>

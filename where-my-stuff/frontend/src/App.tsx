@@ -45,7 +45,8 @@ const categoryImages: Record<string, string> = {
   books: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop',
   grocery: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
   home: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop',
+  sports: 'https://images.unsplash.com/photo-1571019614242:0
+    -c5c5dee9f50b?w=400&h=300&fit=crop',
   toys: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400&h=300&fit=crop',
   default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
 };
@@ -239,7 +240,7 @@ function App() {
             <PackageIcon />
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: '8px' }}>Where's My Stuff?</h1>
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>242
+          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>
             instantly</p>
           {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
           <button onClick={handleLogin} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>

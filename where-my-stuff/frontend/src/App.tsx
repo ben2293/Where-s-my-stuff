@@ -478,15 +478,17 @@ function ShipmentRow({ shipment, isExpanded, onToggle, isLast }: { shipment: Shi
               ✨ {aiSummary}
             </div>
           )}
-          <div style={{ fontSize: '13px', color: '#9ca3af', marginTop: '8px' }}>
-            {shipment.eta.date}
-          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-          <span style={{ padding: '5px 12px', fontSize: '10px', fontWeight: '600', borderRadius: '9999px', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.03em', background: statusColor, color: statusTextColor }}>
-            {shipment.statusLabel}
-          </span>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ padding: '5px 10px', fontSize: '10px', fontWeight: '600', borderRadius: '9999px', whiteSpace: 'nowrap', background: '#f3f4f6', color: '#374151' }}>
+              {shipment.eta.date}
+            </span>
+            <span style={{ padding: '5px 12px', fontSize: '10px', fontWeight: '600', borderRadius: '9999px', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.03em', background: statusColor, color: statusTextColor }}>
+              {shipment.statusLabel}
+            </span>
+          </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#d1d5db', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>

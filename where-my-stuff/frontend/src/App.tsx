@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+244import { useState, useEffect } from 'react';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
 
@@ -241,11 +241,6 @@ function App() {
           <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: '8px' }}>Where's My Stuff?</h1>
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>242
             instantly</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '32px' }}>
-            {['Amazon', 'Flipkart', 'Myntra', 'Nykaa', 'Delhivery', 'BlueDart'].map(name => (
-              <span key={name} style={{ padding: '4px 12px', fontSize: '12px', fontWeight: '500', background: brandConfig[name]?.gradient || '#f3f4f6', color: brandConfig[name]?.textColor || '#374151', borderRadius: '9999px' }}>{name}</span>
-            ))}
-          </div>
           {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
           <button onClick={handleLogin} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
             <GoogleIcon /> Continue with Google

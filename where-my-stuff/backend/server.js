@@ -416,10 +416,17 @@ async function syncShipmentsForUser(userId) {
   const parsedEmails = await batchParseEmails(newEmails, config.gemini.apiKey);
 
   for (const parsed of parsedEmails) {
-    if (!parsed.tracking_number && !parsed.order_number && !parsed.product_name) {
-      console.log('Skip - no useful data:', parsed.raw_subject?.substring(0, 40));
+    // Only skip if we have NOTHING useful - tracking OR order OR subject with "shipment"
+    const hasTracking = parsed.tracking_number && parsed.tracking_number.length > 5;
+    const hasOrder = parsed.order_number && parsed.order_number.length > 3;
+    const hasShipmentSubject = parsed.raw_subject?.toLowerCase().includes('shipment');
+    
+    if (!hasTracking && !hasOrder && !hasShipmentSubject) {
+      console.log('Skip - no useful data:', parsed.raw_subject?.substring(0, 50));
       continue;
     }
+    
+    console.log('✅ Saving:', parsed.raw_subject?.substring(0, 50), '| AWB:', parsed.tracking_number || 'N/A');
 
     const id = crypto.randomUUID();
     const emailDate = parsed.email_date ? new Date(parsed.email_date).getTime() / 1000 : Date.now() / 1000;
@@ -616,9 +623,20 @@ app.post('/api/shipments/sync', async (req, res) => {
 
   try {
     const shipments = await syncShipmentsForUser(session.userId);
-    res.json(shipments);
+    res.json({ success: true, shipments, rateLimited: false });
   } catch (error) {
     console.error('Error syncing:', error);
+    
+    // Check if it's a rate limit error
+    if (error.message.includes('429') || error.message.includes('rate limit')) {
+      return res.status(429).json({ 
+        error: 'Rate limited', 
+        rateLimited: true,
+        retryAfter: 30,
+        message: 'Too many requests. Please wait before syncing again.'
+      });
+    }
+    
     res.status(500).json({ error: error.message || 'Failed to sync' });
   }
 });

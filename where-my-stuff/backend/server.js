@@ -574,9 +574,14 @@ function formatShipmentForFrontend(shipment) {
   // Use override status if set
   const finalStatus = shipment.status_override || shipment.status || 'IN_TRANSIT';
 
+  // Use product name if available, otherwise use merchant name as title
+  const displayName = shipment.product_name && shipment.product_name !== 'Package' 
+    ? shipment.product_name 
+    : (shipment.merchant || 'Package');
+
   return {
     id: shipment.id,
-    itemName: shipment.product_name || 'Package',
+    itemName: displayName,
     merchant: { name: shipment.merchant || 'Unknown' },
     carrier: shipment.carrier || 'Unknown',
     status: finalStatus,

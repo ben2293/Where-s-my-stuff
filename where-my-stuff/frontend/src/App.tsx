@@ -45,7 +45,7 @@ const categoryImages: Record<string, string> = {
   books: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop',
   grocery: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
   home: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1571019614242?w=400&h=300&fit=crop',
+  sports: 'https://images.unsplash.com/photo-1461896836934- voices08ae5?w=400&h=300&fit=crop',
   toys: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400&h=300&fit=crop',
   default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
 };
@@ -134,8 +134,19 @@ function App() {
   const [filter, setFilter] = useState<'all' | 'active' | 'delivered'>('all');
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
 
   useEffect(() => { checkAuthStatus(); }, []);
+
+  // Countdown timer for rate limit
+  useEffect(() => {
+    if (rateLimitCountdown === null || rateLimitCountdown <= 0) {
+      if (rateLimitCountdown === 0) setRateLimitCountdown(null);
+      return;
+    }
+    const timer = setTimeout(() => setRateLimitCountdown(rateLimitCountdown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [rateLimitCountdown]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -186,12 +197,27 @@ function App() {
   };
 
   const handleRefresh = async () => {
+    if (rateLimitCountdown !== null) return; // Don't allow refresh during countdown
+    
     setIsRefreshing(true);
+    setError(null);
     try {
-          const sessionId = localStorage.getItem('sessionId');
-    const response = await fetch(`${API_BASE_URL}/api/shipments/sync`, { method: 'POST', headers: sessionId ? { 'x-session-id': sessionId } : {} });      if (response.ok) {
+      const sessionId = localStorage.getItem('sessionId');
+      const response = await fetch(`${API_BASE_URL}/api/shipments/sync`, { 
+        method: 'POST', 
+        headers: sessionId ? { 'x-session-id': sessionId } : {} 
+      });
+      
+      if (response.status === 429) {
         const data = await response.json();
-        const enriched = data.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));
+        setRateLimitCountdown(data.retryAfter || 30);
+        return;
+      }
+      
+      if (response.ok) {
+        const data = await response.json();
+        const shipmentList = data.shipments || data;
+        const enriched = shipmentList.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));
         setShipments(enriched);
       }
     } catch (err) {
@@ -266,6 +292,10 @@ function App() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
       `}</style>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -274,8 +304,26 @@ function App() {
             <span>Where's My Stuff?</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button onClick={handleRefresh} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '14px', fontWeight: '500', color: '#374151', background: '#f3f4f6', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-              <SyncIcon spinning={isRefreshing} /> {isRefreshing ? 'Syncing...' : 'Sync'}
+            <button 
+              onClick={handleRefresh} 
+              disabled={isRefreshing || rateLimitCountdown !== null}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                padding: '6px 12px', 
+                fontSize: '14px', 
+                fontWeight: '500', 
+                color: rateLimitCountdown !== null ? '#9ca3af' : '#374151', 
+                background: rateLimitCountdown !== null ? '#e5e7eb' : '#f3f4f6', 
+                border: 'none', 
+                borderRadius: '8px', 
+                cursor: rateLimitCountdown !== null ? 'not-allowed' : 'pointer',
+                opacity: rateLimitCountdown !== null ? 0.7 : 1
+              }}
+            >
+              <SyncIcon spinning={isRefreshing} /> 
+              {isRefreshing ? 'Syncing...' : rateLimitCountdown !== null ? `Wait ${rateLimitCountdown}s` : 'Sync'}
             </button>
             <div style={{ fontSize: '14px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>{userEmail}</span>
@@ -286,6 +334,44 @@ function App() {
       </header>
 
       <main style={{ maxWidth: '56rem', margin: '0 auto', padding: '24px 16px' }}>
+        {/* Rate Limit Toast */}
+        {rateLimitCountdown !== null && (
+          <div style={{ 
+            position: 'fixed', 
+            bottom: '24px', 
+            left: '50%', 
+            transform: 'translateX(-50%)', 
+            background: '#1f2937', 
+            color: 'white', 
+            padding: '12px 20px', 
+            borderRadius: '12px', 
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            zIndex: 100,
+            animation: 'slideUp 0.3s ease'
+          }}>
+            <div style={{ 
+              width: '32px', 
+              height: '32px', 
+              borderRadius: '50%', 
+              background: '#fbbf24', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              fontWeight: '700',
+              fontSize: '14px',
+              color: '#1f2937'
+            }}>
+              {rateLimitCountdown}
+            </div>
+            <div>
+              <div style={{ fontWeight: '600', fontSize: '14px' }}>High traffic!</div>
+              <div style={{ fontSize: '12px', color: '#9ca3af' }}>Everyone's tracking packages. {rateLimitCountdown}s...</div>
+            </div>
+          </div>
+        )}
         <div style={{ position: 'relative', marginBottom: '16px' }}>
           <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
             <SearchIcon />

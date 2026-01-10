@@ -45,8 +45,7 @@ const categoryImages: Record<string, string> = {
   books: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop',
   grocery: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
   home: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1571019614242?w=400&h=300&fit=crop',
-    
+  sports: 'https://images.unsplash.com/photo-1461896836934- voices08ae5?w=400&h=300&fit=crop',
   toys: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400&h=300&fit=crop',
   default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
 };
@@ -211,14 +210,22 @@ function App() {
     setShipments([]);
   };
 
+  // Filter logic
+  const activeShipments = shipments.filter(s => s.status !== 'DELIVERED');
+  const deliveredShipments = shipments.filter(s => s.status === 'DELIVERED');
+  
   const filteredShipments = shipments.filter(s => {
     const matchesSearch = !searchQuery || s.itemName.toLowerCase().includes(searchQuery.toLowerCase()) || s.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) || s.carrier.toLowerCase().includes(searchQuery.toLowerCase()) || s.merchant.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filter === 'all' || (filter === 'active' && s.status !== 'DELIVERED') || (filter === 'delivered' && s.status === 'DELIVERED');
     return matchesSearch && matchesFilter;
   });
 
-  const activeCount = shipments.filter(s => s.status !== 'DELIVERED').length;
-  const deliveredCount = shipments.filter(s => s.status === 'DELIVERED').length;
+  // NEW: Get last 5 delivered if no active shipments and filter is 'all' or 'active'
+  const showRecentDelivered = filteredShipments.length === 0 && !searchQuery && (filter === 'all' || filter === 'active') && deliveredShipments.length > 0;
+  const recentDeliveredShipments = showRecentDelivered ? deliveredShipments.slice(0, 5) : [];
+
+  const activeCount = activeShipments.length;
+  const deliveredCount = deliveredShipments.length;
 
 
   if (isLoading) {
@@ -241,7 +248,7 @@ function App() {
           </div>
           <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: '8px' }}>Where's My Stuff?</h1>
           <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>
-            instantly</p>
+            Track all your packages from Gmail — instantly</p>
           {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
           <button onClick={handleLogin} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
             <GoogleIcon /> Continue with Google
@@ -254,6 +261,12 @@ function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
       <header style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#111827' }}>
@@ -288,12 +301,37 @@ function App() {
 
         {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
 
-        {filteredShipments.length === 0 ? (
+        {filteredShipments.length === 0 && !showRecentDelivered ? (
           <div style={{ textAlign: 'center', padding: '64px 16px' }}>
             <PackageIcon />
             <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginTop: '16px' }}>No packages found</h2>
             <p style={{ color: '#6b7280', marginTop: '8px', marginBottom: '16px' }}>{searchQuery ? 'Try a different search' : 'Click Sync to fetch from Gmail'}</p>
             <button onClick={handleRefresh} style={{ padding: '10px 20px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Sync Now</button>
+          </div>
+        ) : showRecentDelivered ? (
+          // NEW: Show recent deliveries when no active packages
+          <div>
+            <div style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '24px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', background: '#DEF7EC', borderRadius: '50%', marginBottom: '12px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#03543F" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>All caught up!</h2>
+              <p style={{ color: '#6b7280', marginTop: '4px' }}>No active deliveries. Here are your recent packages:</p>
+            </div>
+            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              {recentDeliveredShipments.map((shipment, index) => (
+                <ShipmentRow key={shipment.id} shipment={shipment} isExpanded={expandedId === shipment.id} onToggle={() => setExpandedId(expandedId === shipment.id ? null : shipment.id)} isLast={index === recentDeliveredShipments.length - 1} />
+              ))}
+            </div>
+            {deliveredCount > 5 && (
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <button onClick={() => setFilter('delivered')} style={{ padding: '8px 16px', background: 'none', color: '#2563eb', fontWeight: '500', fontSize: '14px', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer' }}>
+                  View all {deliveredCount} delivered packages
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>

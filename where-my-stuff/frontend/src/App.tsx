@@ -45,7 +45,7 @@ const categoryImages: Record<string, string> = {
   books: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop',
   grocery: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
   home: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1461896836934- voices08ae5?w=400&h=300&fit=crop',
+  sports: 'https://images.unsplash.com/photo-1571019614242?w=400&h=300&fit=crop',
   toys: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400&h=300&fit=crop',
   default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
 };

@@ -64,6 +64,8 @@ const KNOWN_MERCHANTS = {
   'uniqlo': 'UNIQLO',
   'zara': 'Zara',
   'h&m': 'H&M',
+  'mango': 'Mango',
+  'massimo dutti': 'Massimo Dutti',
   'decathlon': 'Decathlon',
   'ikea': 'IKEA',
   'pepperfry': 'Pepperfry',
@@ -71,7 +73,11 @@ const KNOWN_MERCHANTS = {
   'pharmeasy': 'PharmEasy',
   'netmeds': 'Netmeds',
   'tata 1mg': 'Tata 1mg',
-  '1mg': 'Tata 1mg'
+  '1mg': 'Tata 1mg',
+  'thewholetruthfoods': 'The Whole Truth',
+  'whole truth': 'The Whole Truth',
+  'swiggy': 'Swiggy',
+  'zomato': 'Zomato'
 };
 
 // ============================================
@@ -176,15 +182,19 @@ function extractMerchant(fromEmail, subject) {
  */
 function extractOrderNumber(text) {
   const patterns = [
+    // Zara style: "ORDER NO. 54545977996"
+    /ORDER\s*(?:NO|NUMBER|#)?\.?\s*[:\s]*([A-Z0-9-]{6,20})/gi,
+    // Generic patterns
     /(?:order|order id|order number|order no)[:\s#]*([A-Z0-9-]{6,20})/gi,
     /(?:OD|ORD)[A-Z0-9]{8,15}/gi,
     /#([A-Z0-9]{8,15})/g
   ];
   
   for (const regex of patterns) {
-    const match = text.match(regex);
-    if (match && match[0]) {
-      return match[0].replace(/^(order|order id|order number|order no)[:\s#]*/i, '').trim();
+    const match = regex.exec(text);
+    if (match) {
+      const orderNum = match[1] || match[0];
+      return orderNum.replace(/^(order|order id|order number|order no|ORDER NO\.?)[:\s#]*/i, '').trim();
     }
   }
   return null;
@@ -260,12 +270,19 @@ function generateLocalSummary(status, merchant, carrier) {
 const SHIPPING_KEYWORDS = [
   'shipped', 'dispatched', 'delivered', 'delivery', 'tracking',
   'out for delivery', 'in transit', 'awb', 'courier',
-  'delhivery', 'bluedart', 'dtdc', 'ekart', 'xpressbees', 'shadowfax'
+  'delhivery', 'bluedart', 'dtdc', 'ekart', 'xpressbees', 'shadowfax',
+  'thank you for your purchase', 'thank you for your order',
+  'order confirmed', 'order placed', 'your order',
+  'will receive your delivery', 'estimated delivery'
 ];
 
 const EXCLUDE_KEYWORDS = [
   'unsubscribe', 'shipping policy', 'free shipping offer',
-  'newsletter', 'promotional', 'sale alert', 'password reset'
+  'newsletter', 'promotional', 'sale alert', 'password reset',
+  'delivered to inbox', 'delivered to your inbox', 
+  'credit card', 'loan', 'insurance', 'mutual fund',
+  'bankbazaar', 'policybazaar', 'creditkarma',
+  'otp', 'verification code', 'verify your'
 ];
 
 function isShippingEmail(subject, from, bodySnippet) {

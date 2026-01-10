@@ -576,14 +576,15 @@ function formatShipmentForFrontend(shipment) {
 
   return {
     id: shipment.id,
-    productName: shipment.product_name || 'Package',
-    merchant: shipment.merchant || 'Unknown',
+    itemName: shipment.product_name || 'Package',
+    merchant: { name: shipment.merchant || 'Unknown' },
     carrier: shipment.carrier || 'Unknown',
     status: finalStatus,
     statusLabel: statusLabels[finalStatus] || 'In Transit',
     trackingNumber: shipment.tracking_number || 'N/A',
     orderNumber: shipment.order_number || 'N/A',
     expectedDelivery: shipment.expected_delivery || null,
+    eta: { label: 'Expected', date: dateStr },
     aiSummary: shipment.ai_summary || null,
     trackingUrl,
     date: dateStr,

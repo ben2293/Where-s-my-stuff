@@ -325,10 +325,28 @@ function App() {
               <SyncIcon spinning={isRefreshing} /> 
               {isRefreshing ? 'Syncing...' : rateLimitCountdown !== null ? `Wait ${rateLimitCountdown}s` : 'Sync'}
             </button>
-            <div style={{ fontSize: '14px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>{userEmail}</span>
-              <button onClick={handleLogout} style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}>Sign out</button>
-            </div>
+            <button 
+              onClick={handleLogout} 
+              title={userEmail}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                color: '#9ca3af', 
+                background: '#f3f4f6', 
+                border: 'none', 
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
           </div>
         </div>
       </header>
@@ -474,7 +492,7 @@ function ShipmentRow({ shipment, isExpanded, onToggle, isLast }: { shipment: Shi
             )}
           </div>
           {aiSummary && (
-            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%)', borderRadius: '8px', fontSize: '13px', color: '#374151', lineHeight: '1.55', borderLeft: '3px solid #6366f1' }}>
+            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%)', borderRadius: '8px', fontSize: '13px', color: '#374151', lineHeight: '1.55', borderLeft: '3px solid #6366f1', width: '100%', boxSizing: 'border-box' }}>
               ✨ {aiSummary}
             </div>
           )}

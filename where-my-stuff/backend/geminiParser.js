@@ -116,8 +116,7 @@ function isLikelyShippingEmail(subject, from, bodySnippet) {
   ];
   const hasStrongIndicator = strongIndicators.some(kw => text.includes(kw));
   
-  return matchedKeywords.length >= 2 || (matchedKeywords.length >= 1 && hasStrongIndicator);
-}
+  return matchedKeywords.length >= 1;}
 
 function getShippingConfidence(subject, from, bodySnippet) {
   const text = `${subject} ${from} ${bodySnippet}`.toLowerCase();

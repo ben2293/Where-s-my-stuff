@@ -1,550 +1,284 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Package, Upload, LogOut, X, Trash2 } from 'lucide-react';
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
-
-interface Shipment {
+interface PackageData {
   id: string;
-  itemName: string;
-  merchant: { name: string };
-  status: string;
-  statusLabel: string;
-  eta: { label: string; date: string };
-  orderNumber: string;
-  trackingNumber: string;
-  carrier: string;
-  group: string;
-  trackingUrl?: string;
-  category?: string;
-  rawSubject?: string;
+  merchantName: string;
+  orderNumber: string | null;
+  carrier: string | null;
+  status: string | null;
+  imageUrl: string;
+  createdAt: string;
 }
 
-const brandConfig: Record<string, { gradient: string; logo: string; textColor: string }> = {
-  'Amazon India': { gradient: 'linear-gradient(135deg, #FF9900 0%, #FFB347 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', textColor: '#232F3E' },
-  Amazon: { gradient: 'linear-gradient(135deg, #FF9900 0%, #FFB347 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg', textColor: '#232F3E' },
-  Flipkart: { gradient: 'linear-gradient(135deg, #2874F0 0%, #5B9CF6 100%)', logo: 'https://logos-world.net/wp-content/uploads/2020/11/Flipkart-Emblem.png', textColor: '#FFFFFF' },
-  Myntra: { gradient: 'linear-gradient(135deg, #FF3F6C 0%, #FF6B8A 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/b3/Myntra_logo.png', textColor: '#FFFFFF' },
-  Nykaa: { gradient: 'linear-gradient(135deg, #FC2779 0%, #FF6BA3 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/9/9e/Nykaa_Logo.svg', textColor: '#FFFFFF' },
-  Meesho: { gradient: 'linear-gradient(135deg, #570A57 0%, #8B1A8B 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/0f/Meesho_Logo.svg', textColor: '#FFFFFF' },
-  AJIO: { gradient: 'linear-gradient(135deg, #4A4A4A 0%, #6B6B6B 100%)', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/14/AJIO_Logo.svg', textColor: '#FFFFFF' },
-  Delhivery: { gradient: 'linear-gradient(135deg, #E31837 0%, #FF4D6A 100%)', logo: '/logos/delhivery.png', textColor: '#FFFFFF' },
-  BlueDart: { gradient: 'linear-gradient(135deg, #003087 0%, #0052CC 100%)', logo: '/logos/bluedart.png', textColor: '#FFFFFF' },
-  DTDC: { gradient: 'linear-gradient(135deg, #0066B3 0%, #3399E6 100%)', logo: '/logos/dtdc.png', textColor: '#FFFFFF' },
-  Ekart: { gradient: 'linear-gradient(135deg, #2874F0 0%, #5B9CF6 100%)', logo: '/logos/ekart.png', textColor: '#FFFFFF' },
-  Shadowfax: { gradient: 'linear-gradient(135deg, #000000 0%, #434343 100%)', logo: '/logos/shadowfax.png', textColor: '#FFFFFF' },
-  Xpressbees: { gradient: 'linear-gradient(135deg, #FF6B00 0%, #FFA500 100%)', logo: '/logos/xpressbees.png', textColor: '#FFFFFF' },
-  Shiprocket: { gradient: 'linear-gradient(135deg, #3B5998 0%, #8B9DC3 100%)', logo: '/logos/shiprocket.png', textColor: '#FFFFFF' },
-  'Ecom Express': { gradient: 'linear-gradient(135deg, #FF4500 0%, #FF6347 100%)', logo: '/logos/ecomexpress.png', textColor: '#FFFFFF' },
-  default: { gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', logo: '', textColor: '#FFFFFF' },
-};
-
-// @ts-ignore - unused in new UI, kept for future use
-const categoryImages: Record<string, string> = {
-  electronics: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=400&h=300&fit=crop',
-  fashion: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=300&fit=crop',
-  beauty: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400&h=300&fit=crop',
-  books: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop',
-  grocery: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop',
-  home: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop',
-  sports: 'https://images.unsplash.com/photo-1461896836934- voices08ae5?w=400&h=300&fit=crop',
-  toys: 'https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400&h=300&fit=crop',
-  default: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=400&h=300&fit=crop',
-};
-
-// @ts-ignore - unused in new UI, kept for future use
-function detectCategory(itemName: string, merchant: string): string {
-  const lower = `${itemName.toLowerCase()} ${merchant.toLowerCase()}`;
-  if (/phone|laptop|tablet|watch|headphone|earphone|charger|cable|electronic|gadget|camera|speaker/i.test(lower)) return 'electronics';
-  if (/shirt|dress|jeans|shoes|jacket|kurta|saree|t-shirt|pants|clothing|wear|fashion/i.test(lower) || merchant === 'Myntra') return 'fashion';
-  if (/cream|serum|lipstick|makeup|skincare|shampoo|beauty|cosmetic/i.test(lower) || merchant === 'Nykaa') return 'beauty';
-  if (/book|novel|textbook|magazine/i.test(lower)) return 'books';
-  if (/food|grocery|snack|fruit|vegetable/i.test(lower)) return 'grocery';
-  if (/furniture|decor|kitchen|home|lamp|curtain/i.test(lower)) return 'home';
-  if (/fitness|yoga|sport|gym|ball/i.test(lower)) return 'sports';
-  if (/toy|game|puzzle|lego/i.test(lower)) return 'toys';
-  return 'default';
-}
-
-function generateAISummary(shipment: Shipment): string {
-  const status = shipment.status.toUpperCase();
-  const merchant = shipment.merchant.name;
-  const carrier = shipment.carrier || 'carrier';
-  const eta = shipment.eta.date;
-  
-  if (status === 'DELIVERED') {
-    return `Delivered ${eta}. Package handed over successfully. You can find delivery proof in the ${merchant} app.`;
-  }
-  
-  if (status.includes('OUT') || status.includes('DELIVERY')) {
-    return `Out for delivery since this morning. Currently with delivery agent. Expected by ${eta}. Track live on ${merchant} app.`;
-  }
-  
-  if (status.includes('TRANSIT')) {
-    return `Shipped from origin. Currently at sorting facility. Should reach local hub tomorrow and deliver by ${eta}.`;
-  }
-  
-  if (status.includes('FAIL') || status.includes('EXCEPTION')) {
-    return `Delivery attempted but failed. Package at ${carrier} hub. Will be retried tomorrow. You can reschedule via ${carrier} app.`;
-  }
-  
-  if (status.includes('CONFIRMED') || status.includes('PLACED')) {
-    return `Order confirmed, waiting for seller to ship. ${merchant} orders typically ship within 2-3 days. Expected delivery by ${eta}.`;
-  }
-  
-  return `Package is being processed. Expected delivery by ${eta}. Track on ${merchant} for updates.`;
-}
-
-const PackageIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 64 64" fill="none">
-    <path d="M10 20 L32 8 L54 20 L32 32 L10 20Z" fill="#FFC975" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M10 20 L10 44 L32 56 L32 32 L10 20Z" fill="#FFA841" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>
-    <path d="M54 20 L54 44 L32 56 L32 32 L54 20Z" fill="#E57C36" stroke="#101114" strokeWidth="2" strokeLinejoin="round"/>
-  </svg>
-);
-
-const GoogleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-  </svg>
-);
-
-const SyncIcon = ({ spinning }: { spinning?: boolean }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: spinning ? 'spin 1s linear infinite' : 'none' }}>
-    <polyline points="23 4 23 10 17 10"></polyline>
-    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-  </svg>
-);
-
-const SearchIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="11" cy="11" r="8"></circle>
-    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-  </svg>
-);
-
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'delivered'>('all');
-  const [error, setError] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [rateLimitCountdown, setRateLimitCountdown] = useState<number | null>(null);
-
-  useEffect(() => { checkAuthStatus(); }, []);
-
-  // Countdown timer for rate limit
-  useEffect(() => {
-    if (rateLimitCountdown === null || rateLimitCountdown <= 0) {
-      if (rateLimitCountdown === 0) setRateLimitCountdown(null);
-      return;
-    }
-    const timer = setTimeout(() => setRateLimitCountdown(rateLimitCountdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [rateLimitCountdown]);
+export default function App() {
+  const [user, setUser] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [packages, setPackages] = useState<PackageData[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-        const sessionId = params.get('session');
-        if (sessionId) {
-                localStorage.setItem('sessionId', sessionId);
-              }
-    if (params.get('auth') === 'success') {
-      checkAuthStatus();
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (params.get('auth') === 'error') {
-      setError('Authentication failed. Please try again.');
-      setIsLoading(false);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    loadUser();
   }, []);
 
-  const checkAuthStatus = async () => {
-    try {
-          const sessionId = localStorage.getItem('sessionId');
-      const response = await fetch(`${API_BASE_URL}/auth/status`, { headers: sessionId ? { 'x-session-id': sessionId } : {} });
-      const data = await response.json();
-      if (data.authenticated) {
-        setIsAuthenticated(true);
-        setUserEmail(data.email);
-        await fetchShipments();
-      }
-    } catch (err) {
-      setError('Failed to connect to server.');
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (user) {
+      loadPackages();
+    }
+  }, [user]);
+
+  const loadUser = async () => {
+    const storedUser = localStorage.getItem('user_email');
+    if (storedUser) {
+      setUser(storedUser);
     }
   };
 
-  const fetchShipments = async () => {
-    try {
-          const sessionId = localStorage.getItem('sessionId');
-      const response = await fetch(`${API_BASE_URL}/api/shipments`, { headers: sessionId ? { 'x-session-id': sessionId } : {} });
-      if (response.ok) {
-        const data = await response.json();
-        const enriched = data.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));
-        setShipments(enriched);
-        setError(null);
-      }
-    } catch (err) {
-      setError('Failed to load shipments.');
+  const loadPackages = async () => {
+    const storedPackages = localStorage.getItem(`packages_${user}`);
+    if (storedPackages) {
+      setPackages(JSON.parse(storedPackages));
     }
   };
 
-  const handleRefresh = async () => {
-    if (rateLimitCountdown !== null) return; // Don't allow refresh during countdown
-    
-    setIsRefreshing(true);
-    setError(null);
+  const savePackages = (pkgs: PackageData[]) => {
+    localStorage.setItem(`packages_${user}`, JSON.stringify(pkgs));
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email.trim()) {
+      setUser(email);
+      localStorage.setItem('user_email', email);
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to logout?')) {
+      setUser(null);
+      setPackages([]);
+      localStorage.removeItem('user_email');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+
     try {
-      const sessionId = localStorage.getItem('sessionId');
-      const response = await fetch(`${API_BASE_URL}/api/shipments/sync`, { 
-        method: 'POST', 
-        headers: sessionId ? { 'x-session-id': sessionId } : {} 
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/parse-package', {
+        method: 'POST',
+        body: formData,
       });
-      
-      if (response.status === 429) {
-        const data = await response.json();
-        setRateLimitCountdown(data.retryAfter || 30);
-        return;
+
+      if (!response.ok) {
+        throw new Error('Failed to parse image');
       }
-      
-      if (response.ok) {
-        const data = await response.json();
-        const shipmentList = data.shipments || data;
-        const enriched = shipmentList.map((s: Shipment) => ({ ...s, category: detectCategory(s.itemName, s.merchant.name) }));
-        setShipments(enriched);
-      }
-    } catch (err) {
-      setError('Failed to refresh.');
+
+      const packageData = await response.json();
+      const imageUrl = URL.createObjectURL(file);
+
+      const newPackage: PackageData = {
+        id: Date.now().toString(),
+        merchantName: packageData.merchantName || 'Unknown Merchant',
+        orderNumber: packageData.orderNumber || null,
+        carrier: packageData.carrier || null,
+        status: packageData.status || null,
+        imageUrl,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedPackages = [newPackage, ...packages];
+      setPackages(updatedPackages);
+      savePackages(updatedPackages);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to process image. Please try again.');
     } finally {
-      setIsRefreshing(false);
+      setUploading(false);
+      e.target.value = '';
     }
   };
 
-  const handleLogin = () => { window.location.href = `${API_BASE_URL}/auth/google`; };
-  const handleLogout = async () => {
-    try {
-      await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch { }
-    setIsAuthenticated(false);
-    setShipments([]);
+  const deletePackage = (id: string) => {
+    const updatedPackages = packages.filter((pkg) => pkg.id !== id);
+    setPackages(updatedPackages);
+    savePackages(updatedPackages);
   };
 
-  // Filter logic
-  const activeShipments = shipments.filter(s => s.status !== 'DELIVERED');
-  const deliveredShipments = shipments.filter(s => s.status === 'DELIVERED');
-  
-  const filteredShipments = shipments.filter(s => {
-    const matchesSearch = !searchQuery || s.itemName.toLowerCase().includes(searchQuery.toLowerCase()) || s.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) || s.carrier.toLowerCase().includes(searchQuery.toLowerCase()) || s.merchant.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filter === 'all' || (filter === 'active' && s.status !== 'DELIVERED') || (filter === 'delivered' && s.status === 'DELIVERED');
-    return matchesSearch && matchesFilter;
-  });
-
-  // NEW: Get last 5 delivered if no active shipments and filter is 'all' or 'active'
-  const showRecentDelivered = filteredShipments.length === 0 && !searchQuery && (filter === 'all' || filter === 'active') && deliveredShipments.length > 0;
-  const recentDeliveredShipments = showRecentDelivered ? deliveredShipments.slice(0, 5) : [];
-
-  const activeCount = activeShipments.length;
-  const deliveredCount = deliveredShipments.length;
-
-
-  if (isLoading) {
+  if (!user) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f9fafb' }}>
-        <div style={{ textAlign: 'center' }}>
-          <PackageIcon />
-          <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading your packages...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(to bottom right, #fef3c7, #fde68a, #fbbf24)', padding: '24px' }}>
-        <div style={{ maxWidth: '400px', width: '100%', background: 'white', borderRadius: '16px', padding: '48px 32px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-            <PackageIcon />
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
+        <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
+          <div className="text-center mb-8">
+            <Package className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-white mb-2">Package Tracker</h1>
+            <p className="text-gray-400">Sign in to track your deliveries</p>
           </div>
-          <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#111827', textAlign: 'center', marginBottom: '8px' }}>Where's My Stuff?</h1>
-          <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>
-            Track all your packages from Gmail — instantly</p>
-          {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
-          <button onClick={handleLogin} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '15px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-            <GoogleIcon /> Continue with Google
-          </button>
-          <p style={{ textAlign: 'center', fontSize: '12px', color: '#9ca3af', marginTop: '16px' }}>We only read shipping emails. Your data stays private.</p>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              Sign In
+            </button>
+          </form>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translate(-50%, 20px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-      `}</style>
-      <header style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#111827' }}>
-            <PackageIcon />
-            <span>Where's My Stuff?</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button 
-              onClick={handleRefresh} 
-              disabled={isRefreshing || rateLimitCountdown !== null}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '6px', 
-                padding: '6px 12px', 
-                fontSize: '14px', 
-                fontWeight: '500', 
-                color: rateLimitCountdown !== null ? '#9ca3af' : '#374151', 
-                background: rateLimitCountdown !== null ? '#e5e7eb' : '#f3f4f6', 
-                border: 'none', 
-                borderRadius: '8px', 
-                cursor: rateLimitCountdown !== null ? 'not-allowed' : 'pointer',
-                opacity: rateLimitCountdown !== null ? 0.7 : 1
-              }}
-            >
-              <SyncIcon spinning={isRefreshing} /> 
-              {isRefreshing ? 'Syncing...' : rateLimitCountdown !== null ? `Wait ${rateLimitCountdown}s` : 'Sync'}
-            </button>
-            <button 
-              onClick={handleLogout} 
-              title={userEmail}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                color: '#9ca3af', 
-                background: '#f3f4f6', 
-                border: 'none', 
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main style={{ maxWidth: '56rem', margin: '0 auto', padding: '24px 16px' }}>
-        {/* Rate Limit Toast */}
-        {rateLimitCountdown !== null && (
-          <div style={{ 
-            position: 'fixed', 
-            bottom: '24px', 
-            left: '50%', 
-            transform: 'translateX(-50%)', 
-            background: '#1f2937', 
-            color: 'white', 
-            padding: '12px 20px', 
-            borderRadius: '12px', 
-            boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            zIndex: 100,
-            animation: 'slideUp 0.3s ease'
-          }}>
-            <div style={{ 
-              width: '32px', 
-              height: '32px', 
-              borderRadius: '50%', 
-              background: '#fbbf24', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              fontWeight: '700',
-              fontSize: '14px',
-              color: '#1f2937'
-            }}>
-              {rateLimitCountdown}
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <Package className="w-8 h-8 text-blue-400" />
             <div>
-              <div style={{ fontWeight: '600', fontSize: '14px' }}>High traffic!</div>
-              <div style={{ fontSize: '12px', color: '#9ca3af' }}>Everyone's tracking packages. {rateLimitCountdown}s...</div>
+              <h1 className="text-2xl font-bold">Package Tracker</h1>
+              <p className="text-sm text-gray-400">{user}</p>
             </div>
           </div>
-        )}
-        <div style={{ position: 'relative', marginBottom: '16px' }}>
-          <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>
-            <SearchIcon />
-          </div>
-          <input type="text" placeholder="Search by product, order number, carrier..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '10px 16px 10px 40px', fontSize: '14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'white', outline: 'none' }} />
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', background: '#f3f4f6', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '24px' }}>
-          <button onClick={() => setFilter('all')} style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '500', color: filter === 'all' ? '#111827' : '#6b7280', background: filter === 'all' ? 'white' : 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: filter === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>All <span style={{ marginLeft: '6px', fontSize: '12px', color: '#9ca3af' }}>{shipments.length}</span></button>
-          <button onClick={() => setFilter('active')} style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '500', color: filter === 'active' ? '#111827' : '#6b7280', background: filter === 'active' ? 'white' : 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: filter === 'active' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>Active <span style={{ marginLeft: '6px', fontSize: '12px', color: '#9ca3af' }}>{activeCount}</span></button>
-          <button onClick={() => setFilter('delivered')} style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '500', color: filter === 'delivered' ? '#111827' : '#6b7280', background: filter === 'delivered' ? 'white' : 'none', border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: filter === 'delivered' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none' }}>Delivered <span style={{ marginLeft: '6px', fontSize: '12px', color: '#9ca3af' }}>{deliveredCount}</span></button>
+        <div className="mb-8">
+          <label className="flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl cursor-pointer transition-colors">
+            <Upload className="w-5 h-5" />
+            <span className="font-semibold">
+              {uploading ? 'Processing...' : 'Upload Package Screenshot'}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
         </div>
 
-        {error && <div style={{ padding: '12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', marginBottom: '16px', color: '#991b1b', fontSize: '14px' }}>{error}</div>}
-
-        {filteredShipments.length === 0 && !showRecentDelivered ? (
-          <div style={{ textAlign: 'center', padding: '64px 16px' }}>
-            <PackageIcon />
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginTop: '16px' }}>No packages found</h2>
-            <p style={{ color: '#6b7280', marginTop: '8px', marginBottom: '16px' }}>{searchQuery ? 'Try a different search' : 'Click Sync to fetch from Gmail'}</p>
-            <button onClick={handleRefresh} style={{ padding: '10px 20px', background: '#111827', color: 'white', fontWeight: '500', fontSize: '14px', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Sync Now</button>
-          </div>
-        ) : showRecentDelivered ? (
-          // NEW: Show recent deliveries when no active packages
-          <div>
-            <div style={{ textAlign: 'center', padding: '32px 16px', marginBottom: '24px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', background: '#DEF7EC', borderRadius: '50%', marginBottom: '12px' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#03543F" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              </div>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827' }}>All caught up!</h2>
-              <p style={{ color: '#6b7280', marginTop: '4px' }}>No active deliveries. Here are your recent packages:</p>
-            </div>
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              {recentDeliveredShipments.map((shipment, index) => (
-                <ShipmentRow key={shipment.id} shipment={shipment} isExpanded={expandedId === shipment.id} onToggle={() => setExpandedId(expandedId === shipment.id ? null : shipment.id)} isLast={index === recentDeliveredShipments.length - 1} />
-              ))}
-            </div>
-            {deliveredCount > 5 && (
-              <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                <button onClick={() => setFilter('delivered')} style={{ padding: '8px 16px', background: 'none', color: '#2563eb', fontWeight: '500', fontSize: '14px', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer' }}>
-                  View all {deliveredCount} delivered packages
-                </button>
-              </div>
-            )}
+        {packages.length === 0 ? (
+          <div className="text-center py-16">
+            <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400 text-lg">No packages yet</p>
+            <p className="text-gray-500 text-sm mt-2">Upload a screenshot to get started</p>
           </div>
         ) : (
-          <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            {filteredShipments.map((shipment, index) => (
-              <ShipmentRow key={shipment.id} shipment={shipment} isExpanded={expandedId === shipment.id} onToggle={() => setExpandedId(expandedId === shipment.id ? null : shipment.id)} isLast={index === filteredShipments.length - 1} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {packages.map((pkg) => (
+              <div key={pkg.id} className="border border-gray-700 rounded-lg p-4 bg-gray-800/50">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Package className="w-5 h-5 text-blue-400" />
+                      <h3 className="font-semibold text-lg">{pkg.merchantName}</h3>
+                    </div>
+                    {pkg.orderNumber && (
+                      <p className="text-sm text-gray-400 mb-2">Order: {pkg.orderNumber}</p>
+                    )}
+                    <p className="text-sm text-gray-400">
+                      {new Date(pkg.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deletePackage(pkg.id)}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                    title="Delete package"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {pkg.carrier && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        Carrier
+                      </p>
+                      <p className="text-sm font-medium">{pkg.carrier}</p>
+                    </div>
+                  )}
+                  {pkg.status && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        Status
+                      </p>
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                          pkg.status.toLowerCase().includes('delivered')
+                            ? 'bg-green-900/50 text-green-300'
+                            : pkg.status.toLowerCase().includes('processing')
+                            ? 'bg-yellow-900/50 text-yellow-300'
+                            : 'bg-blue-900/50 text-blue-300'
+                        }`}
+                      >
+                        {pkg.status}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {pkg.imageUrl && (
+                  <img
+                    src={pkg.imageUrl}
+                    alt={pkg.merchantName}
+                    className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setSelectedImage(pkg.imageUrl)}
+                  />
+                )}
+              </div>
             ))}
           </div>
         )}
-      </main>
-    </div>
-  );
-}
-
-function ShipmentRow({ shipment, isExpanded, onToggle, isLast }: { shipment: Shipment; isExpanded: boolean; onToggle: () => void; isLast: boolean }) {
-  const merchantBrand = brandConfig[shipment.merchant.name] || brandConfig.default;
-  const carrierBrand = brandConfig[shipment.carrier] || brandConfig.default;
-  const isDelivered = shipment.status === 'DELIVERED';
-  const aiSummary = generateAISummary(shipment);
-  
-  const statusColor = isDelivered ? '#DEF7EC' : shipment.status.includes('OUT') || shipment.status.includes('DELIVERY') ? '#FDF6B2' : shipment.status.includes('TRANSIT') ? '#E1EFFE' : shipment.status.includes('FAIL') || shipment.status.includes('EXCEPTION') ? '#FDE8E8' : '#F3E8FF';
-  const statusTextColor = isDelivered ? '#03543F' : shipment.status.includes('OUT') || shipment.status.includes('DELIVERY') ? '#723B13' : shipment.status.includes('TRANSIT') ? '#1E429F' : shipment.status.includes('FAIL') || shipment.status.includes('EXCEPTION') ? '#9B1C1C' : '#5B21B6';
-
-  return (
-    <div>
-      <div onClick={onToggle} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '16px', borderBottom: isLast && !isExpanded ? 'none' : '1px solid #f3f4f6', cursor: 'pointer', transition: 'background 0.15s', background: isExpanded ? '#fafafa' : 'white' }} onMouseEnter={(e) => e.currentTarget.style.background = '#fafafa'} onMouseLeave={(e) => e.currentTarget.style.background = isExpanded ? '#fafafa' : 'white'}>
-        <div style={{ position: 'relative', width: '52px', height: '52px', flexShrink: 0 }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #e5e7eb', position: 'absolute', top: 0, left: 0 }}>
-            <img src={merchantBrand.logo || 'https://via.placeholder.com/44'} alt={shipment.merchant.name} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.style.background = merchantBrand.gradient; }} />
-          </div>
-          {shipment.carrier && (
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.15)', position: 'absolute', bottom: 0, right: 0 }}>
-              <img src={carrierBrand.logo || 'https://via.placeholder.com/28'} alt={shipment.carrier} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.style.background = carrierBrand.gradient; }} />
-            </div>
-          )}
-        </div>
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: '600', fontSize: '15px', color: '#111827', lineHeight: '1.3', marginBottom: '3px' }}>
-            {shipment.itemName !== '! Package' ? shipment.itemName : shipment.rawSubject?.slice(0, 40) || 'Package'}
-          </div>
-          <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span>{shipment.merchant.name}</span>
-            {shipment.carrier && (
-              <>
-                <span style={{ color: '#d1d5db' }}>•</span>
-                <span style={{ color: '#4b5563', fontWeight: '500' }}>{shipment.carrier}</span>
-              </>
-            )}
-            {shipment.trackingNumber && (
-              <>
-                <span style={{ color: '#d1d5db' }}>•</span>
-                <span>#{shipment.trackingNumber.slice(0, 12)}</span>
-              </>
-            )}
-          </div>
-          {aiSummary && (
-            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'linear-gradient(135deg, #f0f9ff 0%, #f5f3ff 100%)', borderRadius: '8px', fontSize: '13px', color: '#374151', lineHeight: '1.55', borderLeft: '3px solid #6366f1', width: '100%', boxSizing: 'border-box' }}>
-              ✨ {aiSummary}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span style={{ padding: '5px 10px', fontSize: '10px', fontWeight: '600', borderRadius: '9999px', whiteSpace: 'nowrap', background: '#f3f4f6', color: '#374151' }}>
-              {shipment.eta.date}
-            </span>
-            <span style={{ padding: '5px 12px', fontSize: '10px', fontWeight: '600', borderRadius: '9999px', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.03em', background: statusColor, color: statusTextColor }}>
-              {shipment.statusLabel}
-            </span>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#d1d5db', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
       </div>
 
-      {isExpanded && (
-        <div style={{ padding: '0 16px 16px 82px', background: '#fafafa', borderBottom: isLast ? 'none' : '1px solid #f3f4f6' }}>
-          <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '14px', border: '1px solid #f3f4f6' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', fontSize: '13px' }}>
-              <div>
-                <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Tracking</div>
-                <div style={{ color: '#111827', fontFamily: 'monospace', fontSize: '13px' }}>{shipment.trackingNumber}</div>
-              </div>
-              <div>
-                <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Carrier</div>
-                <div style={{ color: '#111827', fontSize: '13px' }}>{shipment.carrier || 'N/A'}</div>
-              </div>
-              <div>
-                <div style={{ color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>Status</div>
-                <div style={{ color: '#111827', fontSize: '13px' }}>{shipment.statusLabel}</div>
-              </div>
-            </div>
-            {shipment.trackingUrl && (
-              <a href={shipment.trackingUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '14px', fontSize: '13px', fontWeight: '500', color: '#2563eb', textDecoration: 'none' }}>
-                Track on {shipment.carrier}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </a>
-            )}
-          </div>
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300"
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img
+            src={selectedImage}
+            alt="Package details"
+            className="max-w-full max-h-full object-contain"
+          />
         </div>
       )}
     </div>
   );
 }
-
-export default App;

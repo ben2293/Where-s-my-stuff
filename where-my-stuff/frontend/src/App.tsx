@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Package, Mail, LogOut } from 'lucide-react';
+import { Package, Mail, LogOut, RefreshCw } from 'lucide-react';
+
 interface PackageData {
   id: string;
   merchantName: string;
@@ -19,15 +20,17 @@ const statusColors: Record<string, { bg: string; text: string; icon: string }> =
 };
 
 export default function App() {
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ email: string; name?: string } | null>(null);
   const [email, setEmail] = useState('');
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user_email');
+    const storedName = localStorage.getItem('user_name');
     if (storedUser) {
-      setUser({ email: storedUser });
+      setUser({ email: storedUser, name: storedName || undefined });
       loadPackages(storedUser);
     }
   }, []);
@@ -52,10 +55,40 @@ export default function App() {
     await loadPackages(email);
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      // For now, we'll use a mock Google sign-in
+      // In production, you'd integrate with @react-oauth/google or similar
+      const mockGoogleUser = {
+        email: 'user@gmail.com',
+        name: 'Google User'
+      };
+      setUser(mockGoogleUser);
+      localStorage.setItem('user_email', mockGoogleUser.email);
+      localStorage.setItem('user_name', mockGoogleUser.name);
+      await loadPackages(mockGoogleUser.email);
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!user?.email) return;
+    setSyncing(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated sync
+      await loadPackages(user.email);
+    } catch (error) {
+      console.error('Error syncing packages:', error);
+    }
+    setSyncing(false);
+  };
+
   const handleLogout = () => {
     setUser(null);
     setPackages([]);
     localStorage.removeItem('user_email');
+    localStorage.removeItem('user_name');
   };
 
   const getStatusStyle = (status: string | null) => {
@@ -85,9 +118,31 @@ export default function App() {
               </div>
               
               <h1 className="text-3xl font-bold text-white text-center mb-2">Track Your Packages</h1>
-              <p className="text-blue-100 text-center mb-8">Sign in with your email to track deliveries</p>
+              <p className="text-blue-100 text-center mb-8">Sign in to track your deliveries</p>
               
               <div className="space-y-4">
+                {/* Google Sign In Button */}
+                <button
+                  onClick={handleGoogleSignIn}
+                  className="w-full bg-white hover:bg-gray-100 text-gray-900 font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <text x="0" y="20" fontSize="20" fill="currentColor">G</text>
+                  </svg>
+                  Sign in with Google
+                </button>
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-white/20"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white/50">Or with email</span>
+                  </div>
+                </div>
+
+                {/* Email Sign In */}
                 <div>
                   <label className="block text-sm font-medium text-blue-100 mb-2">Email Address</label>
                   <input
@@ -126,16 +181,26 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Package Tracker</h1>
-              <p className="text-sm text-slate-500">Signed in as {user.email}</p>
+              <p className="text-sm text-slate-500">Signed in as {user.name || user.email}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
+              <span>{syncing ? 'Syncing...' : 'Sync'}</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
       </header>
 

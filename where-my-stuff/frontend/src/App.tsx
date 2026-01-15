@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, Mail, LogOut, X, Trash2 } from 'lucide-react';
+import { Package, Mail, LogOut } from 'lucide-react';
 interface PackageData {
   id: string;
   merchantName: string;

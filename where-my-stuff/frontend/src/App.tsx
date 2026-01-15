@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// Rebuilt with fresh dependencies - v2
-import { Package, Upload, LogOut, X, Trash2 } from 'lucide-react';
+import { Package, Mail, LogOut, Search } from 'lucide-react';
 
 interface PackageData {
   id: string;
@@ -8,357 +7,211 @@ interface PackageData {
   orderNumber: string | null;
   carrier: string | null;
   status: string | null;
-   productName: string | null;
+  productName: string | null;
   imageUrl: string;
   createdAt: string;
 }
 
+const statusColors: Record<string, { bg: string; text: string; icon: string }> = {
+  'delivered': { bg: 'bg-green-50', text: 'text-green-700', icon: '✓' },
+  'out for delivery': { bg: 'bg-blue-50', text: 'text-blue-700', icon: '🚚' },
+  'in transit': { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: '📦' },
+  'processing': { bg: 'bg-purple-50', text: 'text-purple-700', icon: '⚙️' },
+};
+
 export default function App() {
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<{ email: string } | null>(null);
   const [email, setEmail] = useState('');
   const [packages, setPackages] = useState<PackageData[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-   const [emailSubject, setEmailSubject] = useState('');
- const [emailBody, setEmailBody] = useState('');
- const [emailOrderNumber, setEmailOrderNumber] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      loadPackages();
-    }
-  }, [user]);
-
-  const loadUser = async () => {
     const storedUser = localStorage.getItem('user_email');
     if (storedUser) {
-      setUser(storedUser);
+      setUser({ email: storedUser });
+      loadPackages(storedUser);
     }
+  }, []);
+
+  const loadPackages = async (userEmail: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/packages?email=${encodeURIComponent(userEmail)}`);
+      const data = await response.json();
+      setPackages(data);
+    } catch (error) {
+      console.error('Error loading packages:', error);
+    }
+    setLoading(false);
   };
 
-  const loadPackages = async () => {
-    const storedPackages = localStorage.getItem(`packages_${user}`);
-    if (storedPackages) {
-      setPackages(JSON.parse(storedPackages));
-    }
-  };
-
-  const savePackages = (pkgs: PackageData[]) => {
-    localStorage.setItem(`packages_${user}`, JSON.stringify(pkgs));
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) {
-      setUser(email);
-      localStorage.setItem('user_email', email);
-    }
+  const handleSignIn = async () => {
+    if (!email) return;
+    setUser({ email });
+    localStorage.setItem('user_email', email);
+    setEmail('');
+    await loadPackages(email);
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      setUser(null);
-      setPackages([]);
-      localStorage.removeItem('user_email');
+    setUser(null);
+    setPackages([]);
+    localStorage.removeItem('user_email');
+  };
+
+  const getStatusStyle = (status: string | null) => {
+    if (!status) return statusColors['processing'];
+    const lower = status.toLowerCase();
+    for (const [key, value] of Object.entries(statusColors)) {
+      if (lower.includes(key)) return value;
     }
+    return statusColors['processing'];
   };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch('/api/parse-package', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to parse image');
-      }
-
-      const packageData = await response.json();
-      const imageUrl = URL.createObjectURL(file);
-
-      const newPackage: PackageData = {
-        id: Date.now().toString(),
-        merchantName: packageData.merchantName || 'Unknown Merchant',
-        orderNumber: packageData.orderNumber || null,
-        carrier: packageData.carrier || null,
-        status: packageData.status || null,
-         productName: null,
-        imageUrl,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updatedPackages = [newPackage, ...packages];
-      setPackages(updatedPackages);
-      savePackages(updatedPackages);
-    } catch (error) {
-      console.error('Upload failed:', error);
-      alert('Failed to process image. Please try again.');
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
-  };
-
-  const deletePackage = (id: string) => {
-    const updatedPackages = packages.filter((pkg) => pkg.id !== id);
-    setPackages(updatedPackages);
-    savePackages(updatedPackages);
-  };
-
-   const handleEmailParse = async () => {
- try {
- if (!emailSubject.trim() && !emailBody.trim()) {
- alert('Please enter email subject or body');
- return;
- }
- const response = await fetch('/api/parse-email', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({
- subject: emailSubject,
- body: emailBody,
- orderNumber: emailOrderNumber || null,
- }),
- });
- if (!response.ok) throw new Error('Failed to parse email');
- const { status } = await response.json();
- const newPackage: PackageData = {
- id: Date.now().toString(),
- merchantName: 'Email Import',
- orderNumber: emailOrderNumber || null,
- carrier: null,
- status: status || 'Unknown',
- productName: emailBody.match(/(?:Item|Product|Product Name):?\s*([^\n,]+)/i)?.[1]?.trim() || null,
- imageUrl: '',
- createdAt: new Date().toISOString(),
- };
- const updatedPackages = [newPackage, ...packages];
- setPackages(updatedPackages);
- savePackages(updatedPackages);
- setEmailSubject('');
- setEmailBody('');
- setEmailOrderNumber('');
- alert('Email parsed successfully!');
- } catch (error) {
- console.error('Email parse failed:', error);
- alert('Failed to parse email. Please try again.');
- }
- };
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-4">
-        <div className="bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <Package className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-white mb-2">Package Tracker</h1>
-            <p className="text-gray-400">Sign in to track your deliveries</p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+        </div>
+        
+        <div className="relative min-h-screen flex items-center justify-center px-4">
+          <div className="w-full max-w-md">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
+              <div className="flex items-center justify-center mb-8">
+                <div className="bg-blue-500 p-3 rounded-full">
+                  <Package className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              
+              <h1 className="text-3xl font-bold text-white text-center mb-2">Track Your Packages</h1>
+              <p className="text-blue-100 text-center mb-8">Sign in with your email to track deliveries</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-blue-100 mb-2">Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSignIn()}
+                    placeholder="your@email.com"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <button
+                  onClick={handleSignIn}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-5 h-5" />
+                  Sign In
+                </button>
+              </div>
             </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-            >
-              Sign In
-            </button>
-          </form>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 text-white">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6">
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Package className="w-8 h-8 text-blue-400" />
+            <div className="bg-blue-500 p-2 rounded-lg">
+              <Package className="w-6 h-6 text-white" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold">Package Tracker</h1>
-              <p className="text-sm text-gray-400">{user}</p>
+              <h1 className="text-2xl font-bold text-slate-900">Package Tracker</h1>
+              <p className="text-sm text-slate-500">Signed in as {user.email}</p>
             </div>
           </div>
-
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
+            <LogOut className="w-5 h-5" />
+            <span>Logout</span>
           </button>
         </div>
+      </header>
 
-        <div className="mb-8">
-          <label className="flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-xl cursor-pointer transition-colors">
-            <Upload className="w-5 h-5" />
-            <span className="font-semibold">
-              {uploading ? 'Processing...' : 'Upload Package Screenshot'}
-            </span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
-        </div>
-
-         <div className="mb-8 p-6 bg-gray-800/50 rounded-xl">
- <h2 className="text-xl font-bold mb-4">Or Parse From Email</h2>
- <div className="space-y-4">
- <textarea
- value={emailSubject}
- onChange={(e) => setEmailSubject(e.target.value)}
- placeholder="Paste email subject here..."
- className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
- />
- <textarea
- value={emailBody}
- onChange={(e) => setEmailBody(e.target.value)}
- placeholder="Paste email body here..."
- className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
- />
- <input
- type="text"
- value={emailOrderNumber}
- onChange={(e) => setEmailOrderNumber(e.target.value)}
- placeholder="Order Number (optional)"
- className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
- />
- <button
- onClick={handleEmailParse}
- className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
- >
- Parse Email
- </button>
- </div>
- </div>
-
-        {packages.length === 0 ? (
-          <div className="text-center py-16">
-            <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">No packages yet</p>
-            <p className="text-gray-500 text-sm mt-2">Upload a screenshot to get started</p>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin mb-4">
+                <Package className="w-12 h-12 text-blue-500 mx-auto" />
+              </div>
+              <p className="text-slate-600 font-medium">Loading your packages...</p>
+            </div>
+          </div>
+        ) : packages.length === 0 ? (
+          <div className="text-center py-12">
+            <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-600 text-lg">No packages found</p>
+            <p className="text-slate-500 text-sm mt-1">Your tracked packages will appear here</p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {packages.map((pkg) => (
-              <div key={pkg.id} className="border border-gray-700 rounded-lg p-4 bg-gray-800/50">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Package className="w-5 h-5 text-blue-400" />
-                      <h3 className="font-semibold text-lg">{pkg.merchantName}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {packages.map((pkg) => {
+              const statusStyle = getStatusStyle(pkg.status);
+              return (
+                <div key={pkg.id} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-slate-200 hover:border-blue-300">
+                  {/* Image */}
+                  {pkg.imageUrl && (
+                    <div className="h-48 bg-slate-100 overflow-hidden">
+                      <img src={pkg.imageUrl} alt={pkg.productName || 'Package'} className="w-full h-full object-cover" />
                     </div>
-                     {pkg.productName && (
- <p className="text-sm text-gray-300 mb-1">📦 {pkg.productName}</p>
- )}
-                    {pkg.orderNumber && (
-                      <p className="text-sm text-gray-400 mb-2">Order: {pkg.orderNumber}</p>
+                  )}
+                  
+                  {/* Content */}
+                  <div className="p-5">
+                    {/* Product Name */}
+                    {pkg.productName && (
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2 line-clamp-2">{pkg.productName}</h3>
                     )}
-                    <p className="text-sm text-gray-400">
-                      {new Date(pkg.createdAt).toLocaleDateString()}
-                    </p>
+                    
+                    {/* Status Badge */}
+                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium mb-4 ${statusStyle.bg} ${statusStyle.text}`}>
+                      {statusStyle.icon} {pkg.status || 'Unknown'}
+                    </div>
+                    
+                    {/* Details */}
+                    <div className="space-y-2 text-sm">
+                      {pkg.merchantName && (
+                        <div>
+                          <p className="text-slate-500">Seller</p>
+                          <p className="text-slate-900 font-medium">{pkg.merchantName}</p>
+                        </div>
+                      )}
+                      
+                      {pkg.orderNumber && (
+                        <div>
+                          <p className="text-slate-500">Order #</p>
+                          <p className="text-slate-900 font-mono text-xs bg-slate-50 p-2 rounded break-all">{pkg.orderNumber}</p>
+                        </div>
+                      )}
+                      
+                      {pkg.carrier && (
+                        <div>
+                          <p className="text-slate-500">Carrier</p>
+                          <p className="text-slate-900 font-medium">{pkg.carrier}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    onClick={() => deletePackage(pkg.id)}
-                    className="text-red-400 hover:text-red-300 transition-colors"
-                    title="Delete package"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  {pkg.carrier && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                        Carrier
-                      </p>
-                      <p className="text-sm font-medium">{pkg.carrier}</p>
-                    </div>
-                  )}
-                  {pkg.status && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                        Status
-                      </p>
-                      <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                          pkg.status.toLowerCase().includes('delivered')
-                            ? 'bg-green-900/50 text-green-300'
-                            : pkg.status.toLowerCase().includes('processing')
-                            ? 'bg-yellow-900/50 text-yellow-300'
-                            : 'bg-blue-900/50 text-blue-300'
-                        }`}
-                      >
-                        {pkg.status}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {pkg.imageUrl && (
-                  <img
-                    src={pkg.imageUrl}
-                    alt={pkg.merchantName}
-                    className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => setSelectedImage(pkg.imageUrl)}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
-      </div>
-
-      {selectedImage && (
-        <div
-          className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedImage(null)}
-        >
-          <button
-            onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300"
-          >
-            <X className="w-8 h-8" />
-          </button>
-          <img
-            src={selectedImage}
-            alt="Package details"
-            className="max-w-full max-h-full object-contain"
-          />
-        </div>
-      )}
+      </main>
     </div>
   );
 }

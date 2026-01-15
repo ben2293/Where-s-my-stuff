@@ -7,6 +7,7 @@ interface PackageData {
   orderNumber: string | null;
   carrier: string | null;
   status: string | null;
+   productName: string | null;
   imageUrl: string;
   createdAt: string;
 }
@@ -17,6 +18,9 @@ export default function App() {
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [uploading, setUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+   const [emailSubject, setEmailSubject] = useState('');
+ const [emailBody, setEmailBody] = useState('');
+ const [emailOrderNumber, setEmailOrderNumber] = useState('');
 
   useEffect(() => {
     loadUser();
@@ -90,6 +94,7 @@ export default function App() {
         orderNumber: packageData.orderNumber || null,
         carrier: packageData.carrier || null,
         status: packageData.status || null,
+         productName: null,
         imageUrl,
         createdAt: new Date().toISOString(),
       };
@@ -111,6 +116,46 @@ export default function App() {
     setPackages(updatedPackages);
     savePackages(updatedPackages);
   };
+
+   const handleEmailParse = async () => {
+ try {
+ if (!emailSubject.trim() && !emailBody.trim()) {
+ alert('Please enter email subject or body');
+ return;
+ }
+ const response = await fetch('/api/parse-email', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ subject: emailSubject,
+ body: emailBody,
+ orderNumber: emailOrderNumber || null,
+ }),
+ });
+ if (!response.ok) throw new Error('Failed to parse email');
+ const { status } = await response.json();
+ const newPackage: PackageData = {
+ id: Date.now().toString(),
+ merchantName: 'Email Import',
+ orderNumber: emailOrderNumber || null,
+ carrier: null,
+ status: status || 'Unknown',
+ productName: emailBody.match(/(?:Item|Product|Product Name):?\s*([^\n,]+)/i)?.[1]?.trim() || null,
+ imageUrl: '',
+ createdAt: new Date().toISOString(),
+ };
+ const updatedPackages = [newPackage, ...packages];
+ setPackages(updatedPackages);
+ savePackages(updatedPackages);
+ setEmailSubject('');
+ setEmailBody('');
+ setEmailOrderNumber('');
+ alert('Email parsed successfully!');
+ } catch (error) {
+ console.error('Email parse failed:', error);
+ alert('Failed to parse email. Please try again.');
+ }
+ };
 
   if (!user) {
     return (
@@ -186,6 +231,37 @@ export default function App() {
           </label>
         </div>
 
+         <div className="mb-8 p-6 bg-gray-800/50 rounded-xl">
+ <h2 className="text-xl font-bold mb-4">Or Parse From Email</h2>
+ <div className="space-y-4">
+ <textarea
+ value={emailSubject}
+ onChange={(e) => setEmailSubject(e.target.value)}
+ placeholder="Paste email subject here..."
+ className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-12"
+ />
+ <textarea
+ value={emailBody}
+ onChange={(e) => setEmailBody(e.target.value)}
+ placeholder="Paste email body here..."
+ className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+ />
+ <input
+ type="text"
+ value={emailOrderNumber}
+ onChange={(e) => setEmailOrderNumber(e.target.value)}
+ placeholder="Order Number (optional)"
+ className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ />
+ <button
+ onClick={handleEmailParse}
+ className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
+ >
+ Parse Email
+ </button>
+ </div>
+ </div>
+
         {packages.length === 0 ? (
           <div className="text-center py-16">
             <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
@@ -202,6 +278,9 @@ export default function App() {
                       <Package className="w-5 h-5 text-blue-400" />
                       <h3 className="font-semibold text-lg">{pkg.merchantName}</h3>
                     </div>
+                     {pkg.productName && (
+ <p className="text-sm text-gray-300 mb-1">📦 {pkg.productName}</p>
+ )}
                     {pkg.orderNumber && (
                       <p className="text-sm text-gray-400 mb-2">Order: {pkg.orderNumber}</p>
                     )}

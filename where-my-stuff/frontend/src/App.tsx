@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Mail, LogOut, Search } from 'lucide-react';
-
+import { useState, useEffect } from 'react';
+import { Package, Mail, LogOut, X, Trash2 } from 'lucide-react';
 interface PackageData {
   id: string;
   merchantName: string;

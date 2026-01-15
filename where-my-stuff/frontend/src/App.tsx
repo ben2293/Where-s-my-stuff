@@ -76,9 +76,12 @@ export default function App() {
     if (!user?.email) return;
     setSyncing(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulated sync
-      await loadPackages(user.email);
-    } catch (error) {
+await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001'}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email })
+    });
+    await loadPackages(user.email);
       console.error('Error syncing packages:', error);
     }
     setSyncing(false);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// Rebuilt with fresh dependencies - v2
 import { Package, Upload, LogOut, X, Trash2 } from 'lucide-react';
 
 interface PackageData {

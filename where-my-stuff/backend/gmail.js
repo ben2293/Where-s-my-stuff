@@ -262,8 +262,8 @@ async function syncGmail(userTokens, lastSyncMs) {
           const from = h('From');
           const subject = h('Subject');
           const dateStr = h('Date');
-          // Skip newsletters — they always have List-Unsubscribe
-          if (h('List-Unsubscribe') && h('List-ID')) return null;
+          // Skip newsletters/promos — they have List-Unsubscribe
+          if (h('List-Unsubscribe')) return null;
           const snippet = decodeEntities(msg.data.snippet || '');
           const { text: body, imageUrl, price } = extractBodyAndImage(msg.data.payload);
           const parsed = parseEmail({ from, subject, snippet, body });
@@ -282,12 +282,13 @@ async function syncGmail(userTokens, lastSyncMs) {
         }
       })
     );
-    // Drop emails that show no delivery signals — likely newsletters caught by keyword
+    // Keep only emails with real delivery signals:
+    // must have a tracking/order number OR a stage above 0 (shipped, delivered etc.)
+    // This drops promo/marketing emails even from known merchants
     const isDelivery = r =>
-      r.merchant !== 'Unknown' ||
-      r.stage > 0 ||
       r.trackingNumber ||
-      r.orderNumber;
+      r.orderNumber ||
+      r.stage > 0;
     results.push(...batchResults.filter(r => r && isDelivery(r)));
   }
 

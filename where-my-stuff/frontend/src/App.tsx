@@ -5,27 +5,51 @@ import type { User, Package } from './types';
 
 const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
+const TOKEN_KEY = 'wms_token';
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+const setToken = (t: string) => localStorage.setItem(TOKEN_KEY, t);
+const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+
+function authFetch(path: string, opts: RequestInit = {}) {
+  const token = getToken();
+  return fetch(`${API}${path}`, {
+    ...opts,
+    headers: {
+      ...(opts.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+  });
+}
+
 export default function App() {
-  const [user, setUser]         = useState<User | null>(null);
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [syncing, setSyncing]   = useState(false);
+  const [user, setUser]           = useState<User | null>(null);
+  const [packages, setPackages]   = useState<Package[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [syncing, setSyncing]     = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const err = params.get('error');
+    const token = params.get('token');
+    const err   = params.get('error');
+
+    if (token) {
+      setToken(token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     if (err) {
       setAuthError(err === 'auth_failed' ? 'Authentication failed. Please try again.' : `Error: ${err}`);
       window.history.replaceState({}, '', window.location.pathname);
     }
+
     checkAuth();
   }, []);
 
   async function checkAuth() {
     try {
-      const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+      const res = await authFetch('/auth/me');
       const { user: u } = await res.json();
       if (u) { setUser(u); await loadPackages(); }
     } catch { /* network error */ }
@@ -34,7 +58,7 @@ export default function App() {
 
   async function loadPackages() {
     try {
-      const res = await fetch(`${API}/api/packages`, { credentials: 'include' });
+      const res = await authFetch('/api/packages');
       if (res.ok) setPackages(await res.json());
     } catch { /* network error */ }
   }
@@ -43,7 +67,7 @@ export default function App() {
     if (syncing) return;
     setSyncing(true); setSyncError(null);
     try {
-      const res = await fetch(`${API}/api/sync`, { method: 'POST', credentials: 'include' });
+      const res = await authFetch('/api/sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) setSyncError(data.error || 'Sync failed');
       else { setPackages(data.packages); setUser(u => u ? { ...u, last_sync: Date.now() } : u); }
@@ -53,12 +77,10 @@ export default function App() {
 
   async function handleMarkDelivered(id: number) {
     const pkg = packages.find(p => p.id === id);
-    await fetch(`/api/packages/${id}/stage`, {
-      method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+    await authFetch(`/api/packages/${id}/stage`, {
+      method: 'PATCH',
       body: JSON.stringify({ stage: 5 }),
     });
-    // Mark all sibling emails for the same order (same order_number or tracking_number)
     const now = Math.floor(Date.now() / 1000);
     setPackages(prev => prev.map(p =>
       p.id === id
@@ -70,7 +92,8 @@ export default function App() {
   }
 
   async function handleLogout() {
-    await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
+    await authFetch('/auth/logout', { method: 'POST' });
+    clearToken();
     setUser(null); setPackages([]);
   }
 

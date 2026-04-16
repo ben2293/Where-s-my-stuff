@@ -98,7 +98,15 @@ export default function CompactPackageRow({ pkg, onMute, onReport }: Props) {
         aria-expanded={open}
       >
         <span className="text-base flex-shrink-0 w-6 text-center" aria-hidden>{emoji}</span>
-        <span className="flex-1 min-w-0 text-sm text-foreground font-medium truncate">{title}</span>
+        <span className="flex-1 min-w-0 text-sm text-foreground font-medium truncate">
+          <span className="font-semibold">{pkg.merchant}</span>
+          {title && (
+            <>
+              <span className="text-muted-foreground/40 mx-1.5">|</span>
+              <span className="font-normal text-muted-foreground">{title}</span>
+            </>
+          )}
+        </span>
 
         {badge && (
           <span className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full"

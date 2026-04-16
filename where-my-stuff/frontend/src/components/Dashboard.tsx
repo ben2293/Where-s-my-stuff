@@ -152,6 +152,7 @@ const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7
 export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
+  const [displayLimit, setDisplayLimit] = useState(8);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
@@ -196,6 +197,9 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
   }, [visible, stageFilter, dateRange, query]);
 
   const count = (f: StageFilter) => applyStageFilter(visible, f).length;
+
+  function changeFilter(f: StageFilter) { setStageFilter(f); setDisplayLimit(8); }
+  function changeDateRange(r: DateRange) { setDateRange(r); setDisplayLimit(8); }
 
   return (
     <div className="min-h-screen bg-background">
@@ -264,7 +268,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
         {/* Stage filters */}
         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
           {(['all','active','delivered','failed','return','today','tomorrow'] as StageFilter[]).map(f => (
-            <button key={f} onClick={() => setStageFilter(f)}
+            <button key={f} onClick={() => changeFilter(f)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                 stageFilter === f
                   ? 'bg-foreground text-background border-foreground'
@@ -284,7 +288,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
         {/* Date range filters */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
           {(['all','7d','30d','90d'] as DateRange[]).map(r => (
-            <button key={r} onClick={() => setDateRange(r)}
+            <button key={r} onClick={() => changeDateRange(r)}
               className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border transition-all ${
                 dateRange === r
                   ? 'bg-secondary text-foreground border-muted-foreground'
@@ -335,15 +339,22 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     {active.length > 0 ? 'Past orders' : 'Orders'} · {rest.length}
                   </h2>
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
-                    {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
+                    {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
                   </div>
-                  {packages.length < pkgTotal && (
+                  {(displayLimit < rest.length || packages.length < pkgTotal) && (
                     <button
-                      onClick={onLoadMore}
+                      onClick={() => {
+                        if (displayLimit < rest.length) {
+                          setDisplayLimit(d => d + 10);
+                        } else {
+                          onLoadMore();
+                          setDisplayLimit(d => d + 10);
+                        }
+                      }}
                       disabled={loadingMore}
                       className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                     >
-                      {loadingMore ? 'Loading…' : `Show more · ${pkgTotal - packages.length} remaining`}
+                      {loadingMore ? 'Loading…' : `Show more · ${(rest.length - displayLimit) > 0 ? rest.length - displayLimit : pkgTotal - packages.length} remaining`}
                     </button>
                   )}
                 </section>

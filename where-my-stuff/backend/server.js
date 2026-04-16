@@ -76,11 +76,14 @@ app.post('/auth/logout', (req, res) => {
 // ── Packages ──────────────────────────────────────────────────────────────────
 
 app.get('/api/packages', requireAuth, (req, res) => {
+  const limit  = Math.min(parseInt(req.query.limit  ?? '50', 10) || 50, 200);
+  const offset = Math.max(parseInt(req.query.offset ?? '0',  10) || 0,  0);
   const pkgs = all(
-    'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT 200',
-    [req.userEmail]
+    'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT ? OFFSET ?',
+    [req.userEmail, limit, offset]
   );
-  res.json(pkgs);
+  const total = get('SELECT COUNT(*) as n FROM packages WHERE user_email = ?', [req.userEmail])?.n ?? 0;
+  res.json({ packages: pkgs, total, offset, limit });
 });
 
 app.post('/api/sync', requireAuth, async (req, res) => {

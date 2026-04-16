@@ -38,6 +38,8 @@ interface LearnedToast {
 export default function App() {
   const [user, setUser]           = useState<User | null>(null);
   const [packages, setPackages]   = useState<Package[]>([]);
+  const [pkgTotal, setPkgTotal]   = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [syncing, setSyncing]     = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -69,9 +71,27 @@ export default function App() {
 
   async function loadPackages() {
     try {
-      const res = await authFetch('/api/packages');
-      if (res.ok) setPackages(await res.json());
+      const res = await authFetch('/api/packages?limit=50&offset=0');
+      if (res.ok) {
+        const data = await res.json();
+        setPackages(data.packages);
+        setPkgTotal(data.total);
+      }
     } catch { /* network error */ }
+  }
+
+  async function loadMorePackages() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await authFetch(`/api/packages?limit=50&offset=${packages.length}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPackages(prev => [...prev, ...data.packages]);
+        setPkgTotal(data.total);
+      }
+    } catch { /* network error */ }
+    setLoadingMore(false);
   }
 
   async function handleSync() {
@@ -81,7 +101,12 @@ export default function App() {
       const res = await authFetch('/api/sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) setSyncError(data.error || 'Sync failed');
-      else { setPackages(data.packages); setUser(u => u ? { ...u, last_sync: Date.now() } : u); }
+      else {
+        // Sync returns all packages; reset pagination
+        setPackages(data.packages);
+        setPkgTotal(data.packages.length);
+        setUser(u => u ? { ...u, last_sync: Date.now() } : u);
+      }
     } catch { setSyncError('Network error. Check your connection.'); }
     setSyncing(false);
   }
@@ -189,7 +214,7 @@ export default function App() {
     <>
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} syncing={syncing} syncError={syncError} onSync={handleSync} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} />
       }
 
       {/* Report undo toast */}

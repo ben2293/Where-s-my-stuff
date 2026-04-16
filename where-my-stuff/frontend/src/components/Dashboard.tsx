@@ -10,9 +10,12 @@ import type { User, Package } from '../types';
 interface Props {
   user: User;
   packages: Package[];
+  pkgTotal: number;
+  loadingMore: boolean;
   syncing: boolean;
   syncError: string | null;
   onSync: () => void;
+  onLoadMore: () => void;
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
@@ -146,7 +149,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, syncing, syncError, onSync, onLogout, onMarkDelivered, onResync, onReport }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [query, setQuery]             = useState('');
@@ -334,6 +337,15 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
                   </div>
+                  {packages.length < pkgTotal && (
+                    <button
+                      onClick={onLoadMore}
+                      disabled={loadingMore}
+                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading…' : `Show more · ${pkgTotal - packages.length} remaining`}
+                    </button>
+                  )}
                 </section>
               )}
             </div>

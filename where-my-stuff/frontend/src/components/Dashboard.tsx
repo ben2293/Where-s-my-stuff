@@ -19,12 +19,12 @@ interface Props {
   onReport: (id: number) => Promise<void>;
 }
 
-type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'today' | 'tomorrow';
+type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'return' | 'today' | 'tomorrow';
 type DateRange  = 'all' | '7d' | '30d' | '90d';
 
 const STAGE_LABELS: Record<StageFilter, string> = {
   all: 'All', active: 'Active', delivered: 'Delivered',
-  failed: 'Failed', today: 'Today', tomorrow: 'Tomorrow',
+  failed: 'Failed', return: 'Return', today: 'Today', tomorrow: 'Tomorrow',
 };
 
 const DEMO: Package[] = [
@@ -122,6 +122,7 @@ function applyStageFilter(pkgs: Package[], filter: StageFilter): Package[] {
 
   if (filter === 'delivered') return pkgs.filter(p => p.stage === 5);
   if (filter === 'failed')    return pkgs.filter(p => p.stage === 6);
+  if (filter === 'return')    return pkgs.filter(p => p.stage === 7 || p.stage === 8);
   if (filter === 'active')    return pkgs.filter(p => p.stage > 0 && p.stage < 5);
   if (filter === 'today')     return pkgs.filter(p => {
     if (p.stage >= 5) return false;
@@ -259,7 +260,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
 
         {/* Stage filters */}
         <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-          {(['all','active','delivered','failed','today','tomorrow'] as StageFilter[]).map(f => (
+          {(['all','active','delivered','failed','return','today','tomorrow'] as StageFilter[]).map(f => (
             <button key={f} onClick={() => setStageFilter(f)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                 stageFilter === f

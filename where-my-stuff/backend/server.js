@@ -112,8 +112,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
-           stage=CASE WHEN stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
-           status=CASE WHEN stage>=5 THEN status ELSE excluded.status END,
+           stage=CASE WHEN excluded.stage>=7 THEN MAX(excluded.stage,stage) WHEN stage>=7 THEN stage WHEN stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
+           status=CASE WHEN excluded.stage>=7 THEN CASE WHEN excluded.stage>=stage THEN excluded.status ELSE status END WHEN stage>=5 THEN status ELSE excluded.status END,
            thread_id=COALESCE(excluded.thread_id, thread_id),
            from_address=COALESCE(excluded.from_address, from_address),
            image_url=COALESCE(excluded.image_url, image_url),
@@ -259,10 +259,10 @@ app.delete('/api/blocks/:id', requireAuth, (req, res) => {
 app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   const { id } = req.params;
   const { stage } = req.body;
-  if (typeof stage !== 'number' || stage < 0 || stage > 6) return res.status(400).json({ error: 'Invalid stage' });
+  if (typeof stage !== 'number' || stage < 0 || stage > 8) return res.status(400).json({ error: 'Invalid stage' });
   const pkg = get('SELECT id FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
   if (!pkg) return res.status(404).json({ error: 'Not found' });
-  const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned' };
+  const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
   run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
     [stage, STATUS_MAP[stage] ?? 'Order Confirmed', id]);
   res.json({ success: true });

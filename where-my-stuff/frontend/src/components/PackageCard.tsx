@@ -18,11 +18,13 @@ interface Props {
 const HERO: Record<number, string> = {
   0: 'Order placed', 1: 'Being prepared', 2: 'On its way',
   3: 'On its way', 4: 'Arriving today', 5: 'Delivered', 6: 'Delivery failed',
+  7: 'Return initiated', 8: 'Returned',
 };
 
 const STAGE_COLOR: Record<number, string> = {
   0: '#6B7280', 1: '#A78BFA', 2: '#F59E0B',
   3: '#3B82F6', 4: '#10B981', 5: '#16A34A', 6: '#EF4444',
+  7: '#F97316', 8: '#FB923C',
 };
 
 
@@ -70,6 +72,8 @@ function stageSummary(stage: number, carrier: string | null, subject: string, sn
   if (stage === 0) return `Order placed${carrier ? ` — will be handed to ${carrier} soon` : ''}.`;
   if (stage === 1) return `Being packed${carrier ? ` with ${carrier}` : ''} and getting ready to ship.`;
   if (stage === 6) return 'Delivery failed or returned to sender. Check your tracking for details.';
+  if (stage === 7) return 'Return initiated — pickup scheduled or label generated.';
+  if (stage === 8) return 'Return complete. Refund should follow shortly.';
   const hint = detectProductHint(subject, snippet);
   return CONTEXTUAL[hint][stage] ?? CONTEXTUAL.general[stage] ?? '';
 }
@@ -163,7 +167,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
   const [resyncing, setResyncing] = useState(false);
   const [reporting, setReporting] = useState(false);
 
-  const stage    = Math.min(pkg.stage, 6);
+  const stage    = Math.min(pkg.stage, 8);
   const color    = STAGE_COLOR[stage];
   const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const hero     = HERO[stage] ?? pkg.status;

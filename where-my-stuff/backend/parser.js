@@ -1,6 +1,33 @@
 // Comprehensive delivery email parser for Indian e-commerce & carriers
 
 const STAGE_PATTERNS = {
+  returned: {
+    stage: 8,
+    patterns: [
+      /return(?:ed)? (?:has been )?(?:picked up|collected|received by seller)/i,
+      /refund (?:has been )?(?:processed|credited|initiated|approved)/i,
+      /your refund (?:of|for)/i,
+      /amount (?:has been )?refunded/i,
+      /return (?:has been )?completed/i,
+      /return (?:shipment )?delivered/i,
+      /money (?:has been )?(?:returned|credited)/i,
+    ],
+  },
+  return_initiated: {
+    stage: 7,
+    patterns: [
+      /return (?:has been )?initiated/i,
+      /return (?:request )?(?:has been )?(?:accepted|approved|confirmed|received)/i,
+      /return (?:pickup )?scheduled/i,
+      /pickup scheduled for your return/i,
+      /we(?:'ve| have) received your return/i,
+      /your return (?:request|order)/i,
+      /initiating your return/i,
+      /return (?:label|slip) (?:has been )?(?:generated|created|sent)/i,
+      /drop[\s-]off your return/i,
+      /exchange (?:request )?(?:has been )?(?:initiated|accepted|approved)/i,
+    ],
+  },
   failed: {
     stage: 6,
     patterns: [
@@ -211,7 +238,14 @@ const TRACKING_PATTERNS = [
 ];
 
 function detectStage(text) {
-  // Failed is special — can override delivered
+  // Return stages checked first — highest priority
+  if (STAGE_PATTERNS.returned.patterns.some(p => p.test(text))) {
+    return { stage: 8, status: 'Returned' };
+  }
+  if (STAGE_PATTERNS.return_initiated.patterns.some(p => p.test(text))) {
+    return { stage: 7, status: 'Return Initiated' };
+  }
+  // Failed can override delivered
   if (STAGE_PATTERNS.failed.patterns.some(p => p.test(text))) {
     return { stage: 6, status: 'Failed / Returned' };
   }

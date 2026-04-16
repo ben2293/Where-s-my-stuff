@@ -9,9 +9,11 @@ interface Props {
 }
 
 const STAGE_BADGE: Record<number, { label: string; color: string; bg: string }> = {
-  0: { label: 'Confirmed', color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' },
-  5: { label: 'Delivered', color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
-  6: { label: 'Failed',    color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
+  0: { label: 'Confirmed',  color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' },
+  5: { label: 'Delivered',  color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
+  6: { label: 'Failed',     color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
+  7: { label: 'Return',     color: '#fb923c', bg: 'rgba(251,146,60,0.12)'  },
+  8: { label: 'Returned',   color: '#fdba74', bg: 'rgba(253,186,116,0.12)' },
 };
 
 const MERCHANT_EMOJI: Record<string, string> = {
@@ -73,7 +75,7 @@ export default function CompactPackageRow({ pkg, onMute, onReport }: Props) {
   const [reporting, setReporting] = useState(false);
   const [hidden, setHidden]     = useState(false);
 
-  const stage = Math.min(pkg.stage, 6);
+  const stage = Math.min(pkg.stage, 8);
   const badge = STAGE_BADGE[stage];
   const emoji = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const title = getTitle(pkg);

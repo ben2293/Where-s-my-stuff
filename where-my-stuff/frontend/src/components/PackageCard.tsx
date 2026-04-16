@@ -229,8 +229,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-5xl"
-            style={{ background: `linear-gradient(135deg, ${accent}30 0%, ${accent}10 100%)` }}
+            className="w-full h-full flex items-center justify-center text-5xl bg-zinc-800"
           >
             {emoji}
           </div>

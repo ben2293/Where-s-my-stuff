@@ -91,9 +91,13 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'No Gmail access. Please sign in again.' });
     }
 
+    // Load user's learned blocks so sync can skip them
+    const userBlocks = all('SELECT type, value FROM user_blocks WHERE user_email = ?', [userEmail]);
+
     const { packages, freshAccessToken } = await syncGmail(
       { access_token: user.access_token, refresh_token: user.refresh_token },
-      user.last_sync || 0
+      user.last_sync || 0,
+      userBlocks
     );
 
     if (freshAccessToken && freshAccessToken !== user.access_token) {
@@ -103,21 +107,22 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     for (const p of packages) {
       run(
         `INSERT INTO packages
-           (user_email, gmail_message_id, thread_id, merchant, carrier, tracking_number,
+           (user_email, gmail_message_id, thread_id, from_address, merchant, carrier, tracking_number,
             order_number, status, stage, subject, received_date, snippet, image_url, price, expected_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
            stage=CASE WHEN stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
            status=CASE WHEN stage>=5 THEN status ELSE excluded.status END,
            thread_id=COALESCE(excluded.thread_id, thread_id),
+           from_address=COALESCE(excluded.from_address, from_address),
            image_url=COALESCE(excluded.image_url, image_url),
            price=COALESCE(excluded.price, price),
            order_number=COALESCE(excluded.order_number, order_number),
            expected_date=COALESCE(excluded.expected_date, expected_date),
            updated_at=strftime('%s','now')`,
-        [userEmail, p.gmail_message_id, p.thread_id || null, p.merchant, p.carrier,
-         p.trackingNumber, p.orderNumber || null, p.status, p.stage,
+        [userEmail, p.gmail_message_id, p.thread_id || null, p.from_address || null,
+         p.merchant, p.carrier, p.trackingNumber, p.orderNumber || null, p.status, p.stage,
          p.subject, p.received_date, p.snippet, p.image_url || null, p.price || null, p.expectedDate || null]
       );
     }
@@ -169,6 +174,86 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
     console.error('Resync error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// Diagnose why a package leaked through the delivery filter
+// Returns a list of block rules to create + a human-readable reason string
+const SUBJECT_DELIVERY_KEYWORDS = [
+  'shipped', 'dispatched', 'delivered', 'delivery', 'shipment',
+  'out for delivery', 'in transit', 'order confirmed', 'order placed',
+  'order received', 'order update', 'your order', 'on its way',
+  'arriving today', 'tracking', 'invoice', 'your package',
+];
+
+function diagnose(pkg) {
+  const blocks = [];
+  const reasons = [];
+
+  // 1. Block the specific sender email address (most surgical)
+  if (pkg.from_address) {
+    blocks.push({ type: 'sender', value: pkg.from_address });
+    reasons.push(`sender ${pkg.from_address}`);
+  }
+
+  // 2. Identify which subject keyword triggered the match
+  const subjectLow = (pkg.subject || '').toLowerCase();
+  for (const kw of SUBJECT_DELIVERY_KEYWORDS) {
+    if (subjectLow.includes(kw)) {
+      reasons.push(`subject matched "${kw}"`);
+      break;
+    }
+  }
+
+  // 3. Note if it had a false tracking/order number
+  if (pkg.tracking_number) reasons.push(`false tracking: ${pkg.tracking_number}`);
+  else if (pkg.order_number) reasons.push(`false order: ${pkg.order_number}`);
+  else if (pkg.stage > 0)    reasons.push(`false stage detection (stage ${pkg.stage})`);
+
+  return {
+    blocks,
+    reason: reasons.join(' · ') || 'unknown pattern',
+    learnedLabel: pkg.from_address ? `Won't show emails from ${pkg.from_address} again` : 'Pattern blocked',
+  };
+}
+
+app.post('/api/packages/:id/report', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const pkg = get('SELECT * FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
+  if (!pkg) return res.status(404).json({ error: 'Not found' });
+
+  const { blocks, reason, learnedLabel } = diagnose(pkg);
+
+  // Persist block rules
+  for (const block of blocks) {
+    try {
+      run(
+        `INSERT INTO user_blocks (user_email, type, value, reason)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_email, type, value) DO NOTHING`,
+        [req.userEmail, block.type, block.value, reason]
+      );
+    } catch { /* duplicate — ignore */ }
+  }
+
+  // Delete the package so it never comes back
+  run('DELETE FROM packages WHERE id = ?', [id]);
+
+  console.log(`[feedback] ${req.userEmail} reported "${pkg.subject}" — ${reason}`);
+
+  res.json({ success: true, reason, learnedLabel, blocksAdded: blocks.length });
+});
+
+app.get('/api/blocks', requireAuth, (req, res) => {
+  const blocks = all('SELECT * FROM user_blocks WHERE user_email = ? ORDER BY created_at DESC', [req.userEmail]);
+  res.json(blocks);
+});
+
+app.delete('/api/blocks/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const block = get('SELECT id FROM user_blocks WHERE id = ? AND user_email = ?', [id, req.userEmail]);
+  if (!block) return res.status(404).json({ error: 'Not found' });
+  run('DELETE FROM user_blocks WHERE id = ?', [id]);
+  res.json({ success: true });
 });
 
 app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {

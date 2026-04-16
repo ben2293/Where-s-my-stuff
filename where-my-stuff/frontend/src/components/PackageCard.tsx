@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, X, Hash, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { Copy, Check, X, Hash, ExternalLink, RefreshCw, AlertCircle, ThumbsDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ interface Props {
   onMute: (merchant: string) => void;
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
+  onReport: (id: number) => Promise<void>;
 }
 
 const HERO: Record<number, string> = {
@@ -164,13 +165,14 @@ function ProgressBar({ stage, color, deliverAnim, glow }: { stage: number; color
   );
 }
 
-export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync }: Props) {
+export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, onReport }: Props) {
   const [copied, setCopied]       = useState(false);
   const [muting, setMuting]       = useState(false);
   const [imgOk, setImgOk]         = useState(true);
   const [delivering, setDelivering] = useState(false);
   const [glow, setGlow]           = useState(false);
   const [resyncing, setResyncing] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   const stage    = Math.min(pkg.stage, 6);
   const color    = STAGE_COLOR[stage];
@@ -196,6 +198,12 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync }: 
     setResyncing(true);
     await onResync(pkg.id);
     setResyncing(false);
+  };
+
+  const handleReport = async () => {
+    setReporting(true);
+    setMuting(true);
+    setTimeout(() => onReport(pkg.id), 280);
   };
 
   return (
@@ -354,7 +362,16 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync }: 
         >
           <RefreshCw className={cn('w-3 h-3', resyncing && 'animate-spin')} />
         </Button>
-        <p className="text-[10px] text-muted-foreground/40 text-right leading-tight ml-auto">From<br />your emails</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground/50 hover:text-red-500 px-2 ml-auto"
+          onClick={handleReport}
+          disabled={reporting}
+          aria-label="Not a delivery — report this"
+        >
+          <ThumbsDown className="w-3 h-3" />
+        </Button>
       </CardFooter>
     </Card>
   );

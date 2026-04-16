@@ -218,7 +218,25 @@ function extractBodyAndImage(payload) {
   };
 }
 
-async function syncGmail(userTokens, lastSyncMs) {
+// Extract bare email address from "Name <email>" or raw "email"
+function extractEmail(from) {
+  const m = from.match(/<([^>]+)>/);
+  return (m ? m[1] : from).trim().toLowerCase();
+}
+
+// Check if a message is blocked by user-learned rules
+function isUserBlocked(from, subject, userBlocks) {
+  if (!userBlocks.length) return false;
+  const fromEmail = extractEmail(from);
+  const subjectLow = subject.toLowerCase();
+  for (const block of userBlocks) {
+    if (block.type === 'sender' && fromEmail === block.value) return true;
+    if (block.type === 'subject_contains' && subjectLow.includes(block.value)) return true;
+  }
+  return false;
+}
+
+async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   const client = createOAuthClient();
   client.setCredentials({
     access_token: userTokens.access_token,
@@ -264,12 +282,15 @@ async function syncGmail(userTokens, lastSyncMs) {
           const dateStr = h('Date');
           // Skip newsletters/promos — they have List-Unsubscribe
           if (h('List-Unsubscribe')) return null;
+          // Skip user-learned blocks
+          if (isUserBlocked(from, subject, userBlocks)) return null;
           const snippet = decodeEntities(msg.data.snippet || '');
           const { text: body, imageUrl, price } = extractBodyAndImage(msg.data.payload);
           const parsed = parseEmail({ from, subject, snippet, body });
           return {
             gmail_message_id: id,
             thread_id: msg.data.threadId || null,
+            from_address: extractEmail(from),
             image_url: imageUrl,
             price: price,
             ...parsed,

@@ -50,7 +50,20 @@ async function getDb() {
   try { db.run(`ALTER TABLE packages ADD COLUMN image_url TEXT`); } catch {}
   try { db.run(`ALTER TABLE packages ADD COLUMN price INTEGER`); } catch {}
   try { db.run(`ALTER TABLE packages ADD COLUMN expected_date TEXT`); } catch {}
+  try { db.run(`ALTER TABLE packages ADD COLUMN from_address TEXT`); } catch {}
   try { db.run(`ALTER TABLE users ADD COLUMN auth_token TEXT`); } catch {}
+  // User-learned blocks from thumbs-down feedback
+  try {
+    db.run(`CREATE TABLE IF NOT EXISTS user_blocks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      value TEXT NOT NULL,
+      reason TEXT,
+      created_at INTEGER DEFAULT (strftime('%s','now')),
+      UNIQUE(user_email, type, value)
+    )`);
+  } catch {}
   save();
   return db;
 }

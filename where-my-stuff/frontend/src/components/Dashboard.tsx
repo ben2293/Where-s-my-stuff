@@ -16,6 +16,7 @@ interface Props {
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
+  onReport: (id: number) => Promise<void>;
 }
 
 type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'today' | 'tomorrow';
@@ -144,7 +145,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, syncing, syncError, onSync, onLogout, onMarkDelivered, onResync }: Props) {
+export default function Dashboard({ user, packages, syncing, syncError, onSync, onLogout, onMarkDelivered, onResync, onReport }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [query, setQuery]             = useState('');
@@ -318,7 +319,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger">
                     {active.map(pkg => (
-                      <PackageCard key={pkg.id} pkg={pkg} onMute={mute} onMarkDelivered={onMarkDelivered} onResync={onResync} />
+                      <PackageCard key={pkg.id} pkg={pkg} onMute={mute} onMarkDelivered={onMarkDelivered} onResync={onResync} onReport={onReport} />
                     ))}
                   </div>
                 </section>

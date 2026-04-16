@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Copy, Check, Hash, Truck, Mail } from 'lucide-react';
+import { ChevronRight, ChevronDown, Copy, Check, Hash, Truck, Mail, ThumbsDown } from 'lucide-react';
 import type { Package } from '../types';
 
 interface Props {
   pkg: Package;
   onMute: (merchant: string) => void;
+  onReport: (id: number) => Promise<void>;
 }
 
 const STAGE_BADGE: Record<number, { label: string; color: string; bg: string }> = {
@@ -66,9 +67,11 @@ function getTitle(pkg: Package): string {
   return `Order from ${pkg.merchant}`;
 }
 
-export default function CompactPackageRow({ pkg, onMute }: Props) {
-  const [open, setOpen]     = useState(false);
-  const [copied, setCopied] = useState(false);
+export default function CompactPackageRow({ pkg, onMute, onReport }: Props) {
+  const [open, setOpen]         = useState(false);
+  const [copied, setCopied]     = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [hidden, setHidden]     = useState(false);
 
   const stage = Math.min(pkg.stage, 6);
   const badge = STAGE_BADGE[stage];
@@ -82,6 +85,8 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
     await navigator.clipboard.writeText(pkg.tracking_number);
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
+
+  if (hidden) return null;
 
   return (
     <div className="group">
@@ -163,15 +168,30 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
             >
               Hide all {pkg.merchant} orders
             </button>
-            <a
-              href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id || pkg.gmail_message_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
-            >
-              <Mail className="w-3 h-3" />
-              View in Gmail
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id || pkg.gmail_message_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+              >
+                <Mail className="w-3 h-3" />
+                View in Gmail
+              </a>
+              <button
+                onClick={async () => {
+                  setReporting(true);
+                  setHidden(true);
+                  await onReport(pkg.id);
+                }}
+                disabled={reporting}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors"
+                aria-label="Not a delivery"
+              >
+                <ThumbsDown className="w-3 h-3" />
+                Not a delivery
+              </button>
+            </div>
           </div>
         </div>
       )}

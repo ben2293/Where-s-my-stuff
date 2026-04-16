@@ -331,7 +331,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
                     {active.length > 0 ? 'Past orders' : 'Orders'} · {rest.length}
                   </h2>
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
-                    {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} />)}
+                    {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
                   </div>
                 </section>
               )}

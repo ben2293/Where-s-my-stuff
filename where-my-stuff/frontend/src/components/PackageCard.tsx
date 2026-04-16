@@ -179,7 +179,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
   const accent   = MERCHANT_ACCENT[pkg.merchant] ?? '#6366F1';
   const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const hero     = HERO[stage] ?? pkg.status;
-  const summary  = stageSummary(stage, pkg.carrier, pkg.subject, pkg.snippet ?? '');
+  const summary  = stageSummary(stage, pkg.carrier, pkg.subject, `${pkg.snippet ?? ''} ${pkg.merchant}`);
   const title    = getTitle(pkg);
   const titleLine = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
   const hasImage = !!(pkg.image_url && imgOk);

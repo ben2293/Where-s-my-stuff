@@ -25,17 +25,6 @@ const STAGE_COLOR: Record<number, string> = {
   3: '#3B82F6', 4: '#10B981', 5: '#16A34A', 6: '#EF4444',
 };
 
-const MERCHANT_ACCENT: Record<string, string> = {
-  'Amazon': '#FF6B00', 'Flipkart': '#2874F0', 'Myntra': '#FF3F6C',
-  'Nykaa': '#FC2779', 'Nykaa Fashion': '#FC2779', 'Meesho': '#F43F5E',
-  'AJIO': '#475569', 'Zara': '#E5E7EB', 'H&M': '#E11D48',
-  'Mango': '#D97706', 'Swiggy': '#FC8019', 'Swiggy Instamart': '#FC8019',
-  'Instamart': '#FC8019', 'Blinkit': '#FBBF24', 'Zepto': '#A855F7',
-  'BigBasket': '#65A30D', 'Tata Cliq': '#7C3AED', 'Apple': '#9CA3AF',
-  'Croma': '#16A34A', 'Puma': '#DC2626', 'Nike': '#E5E7EB',
-  'Adidas': '#E5E7EB', 'boAt': '#7C3AED', 'Noise': '#0891B2',
-  'Mamaearth': '#65A30D', 'Lenskart': '#0891B2', 'Decathlon': '#2563EB',
-};
 
 const MERCHANT_EMOJI: Record<string, string> = {
   'Amazon': '📦', 'Flipkart': '🛒', 'Myntra': '👗', 'Nykaa': '💄',
@@ -176,7 +165,6 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
 
   const stage    = Math.min(pkg.stage, 6);
   const color    = STAGE_COLOR[stage];
-  const accent   = MERCHANT_ACCENT[pkg.merchant] ?? '#6366F1';
   const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const hero     = HERO[stage] ?? pkg.status;
   const summary  = stageSummary(stage, pkg.carrier, pkg.subject, `${pkg.snippet ?? ''} ${pkg.merchant}`);
@@ -229,7 +217,8 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-5xl bg-zinc-800"
+            className="w-full h-full flex items-center justify-center text-5xl"
+            style={{ background: '#27272a' }}
           >
             {emoji}
           </div>
@@ -268,7 +257,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
-            {title && <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>}
+            {title && !title.startsWith('Order #') && <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>}
           </div>
           <CardAction>
             {pkg.price != null && (
@@ -296,30 +285,29 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <div className="mt-3">
           <ProgressBar stage={stage} color={isOverdue ? '#EF4444' : color} deliverAnim={delivering} glow={glow} />
         </div>
+
+        {/* Order number inline below progress bar */}
+        {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && (
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest">Order</span>
+            <span className="text-[11px] font-mono text-muted-foreground">{pkg.order_number}</span>
+          </div>
+        )}
       </CardHeader>
 
-      {/* Tracking / order info */}
-      {(pkg.order_number || pkg.tracking_number) && (
+      {/* Tracking info */}
+      {pkg.tracking_number && (
         <div className="px-6 pb-2 space-y-1.5">
-          {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && !title.startsWith(`Order #${pkg.order_number}`) && (
-            <div className="flex items-center gap-2 text-xs">
-              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
-              <span className="text-muted-foreground">Order</span>
-              <span className="font-mono text-foreground ml-auto">{pkg.order_number}</span>
+          <div className="flex items-center gap-2 text-xs">
+            <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+            <span className="text-muted-foreground">Tracking</span>
+            <div className="ml-auto flex items-center gap-1.5 min-w-0">
+              <span className="font-mono text-foreground truncate max-w-[130px]">{pkg.tracking_number}</span>
+              <button onClick={copyTracking} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors" aria-label="Copy">
+                {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+              </button>
             </div>
-          )}
-          {pkg.tracking_number && (
-            <div className="flex items-center gap-2 text-xs">
-              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
-              <span className="text-muted-foreground">Tracking</span>
-              <div className="ml-auto flex items-center gap-1.5 min-w-0">
-                <span className="font-mono text-foreground truncate max-w-[130px]">{pkg.tracking_number}</span>
-                <button onClick={copyTracking} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors" aria-label="Copy">
-                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 

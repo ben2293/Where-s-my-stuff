@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Copy, Check, Hash, Truck } from 'lucide-react';
+import { ChevronRight, ChevronDown, Copy, Check, Hash, Truck, Mail } from 'lucide-react';
 import type { Package } from '../types';
 
 interface Props {
@@ -156,12 +156,23 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
             return null;
           })()}
 
-          <button
-            onClick={() => onMute(pkg.merchant)}
-            className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors pt-0.5"
-          >
-            Hide all {pkg.merchant} orders
-          </button>
+          <div className="flex items-center justify-between pt-0.5">
+            <button
+              onClick={() => onMute(pkg.merchant)}
+              className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors"
+            >
+              Hide all {pkg.merchant} orders
+            </button>
+            <a
+              href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id || pkg.gmail_message_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
+            >
+              <Mail className="w-3 h-3" />
+              View in Gmail
+            </a>
+          </div>
         </div>
       )}
     </div>

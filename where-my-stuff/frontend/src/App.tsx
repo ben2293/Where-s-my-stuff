@@ -42,10 +42,12 @@ export default function App() {
   const [syncing, setSyncing]     = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [undoPending, setUndoPending]   = useState<UndoPending | null>(null);
-  const [learnedToast, setLearnedToast] = useState<LearnedToast | null>(null);
-  const undoTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const learnedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [undoPending, setUndoPending]         = useState<UndoPending | null>(null);
+  const [reportUndoPending, setReportUndoPending] = useState<{ pkg: Package } | null>(null);
+  const [learnedToast, setLearnedToast]       = useState<LearnedToast | null>(null);
+  const undoTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reportUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const learnedTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -85,16 +87,32 @@ export default function App() {
   }
 
   async function handleReport(id: number) {
-    try {
-      const res = await authFetch(`/api/packages/${id}/report`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        setPackages(prev => prev.filter(p => p.id !== id));
-        if (learnedTimerRef.current) clearTimeout(learnedTimerRef.current);
-        setLearnedToast({ learnedLabel: data.learnedLabel, reason: data.reason });
-        learnedTimerRef.current = setTimeout(() => setLearnedToast(null), 5000);
-      }
-    } catch { /* network error */ }
+    const pkg = packages.find(p => p.id === id);
+    if (!pkg) return;
+    // Optimistically remove; give 5s undo window before actually reporting
+    setPackages(prev => prev.filter(p => p.id !== id));
+    if (reportUndoTimerRef.current) clearTimeout(reportUndoTimerRef.current);
+    setReportUndoPending({ pkg });
+    reportUndoTimerRef.current = setTimeout(async () => {
+      setReportUndoPending(null);
+      try {
+        const res = await authFetch(`/api/packages/${id}/report`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          if (learnedTimerRef.current) clearTimeout(learnedTimerRef.current);
+          setLearnedToast({ learnedLabel: data.learnedLabel, reason: data.reason });
+          learnedTimerRef.current = setTimeout(() => setLearnedToast(null), 5000);
+        }
+      } catch { /* network error */ }
+    }, 5000);
+  }
+
+  function handleReportUndo() {
+    if (!reportUndoPending) return;
+    if (reportUndoTimerRef.current) clearTimeout(reportUndoTimerRef.current);
+    const { pkg } = reportUndoPending;
+    setReportUndoPending(null);
+    setPackages(prev => [...prev, pkg].sort((a, b) => b.received_date - a.received_date));
   }
 
   async function handleResync(id: number) {
@@ -173,6 +191,31 @@ export default function App() {
         ? <LoginScreen authError={authError} />
         : <Dashboard user={user} packages={packages} syncing={syncing} syncError={syncError} onSync={handleSync} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} />
       }
+
+      {/* Report undo toast */}
+      {reportUndoPending && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-up">
+          <div className="flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-3 shadow-2xl">
+            <div className="w-5 h-5 rounded-full bg-orange-900 flex items-center justify-center flex-shrink-0">
+              <ThumbsDown className="w-3 h-3 text-orange-400" />
+            </div>
+            <span className="text-sm text-foreground">Marked as not a delivery</span>
+            <div className="w-px h-4 bg-border" />
+            <button
+              onClick={handleReportUndo}
+              className="text-sm font-semibold text-foreground hover:text-muted-foreground transition-colors"
+            >
+              Undo
+            </button>
+            <button
+              onClick={() => { if (reportUndoTimerRef.current) clearTimeout(reportUndoTimerRef.current); setReportUndoPending(null); }}
+              className="text-muted-foreground hover:text-foreground transition-colors ml-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Learned toast */}
       {learnedToast && (

@@ -302,7 +302,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
       {/* Tracking / order info */}
       {(pkg.order_number || pkg.tracking_number) && (
         <div className="px-6 pb-2 space-y-1.5">
-          {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && (
+          {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && !title.startsWith(`Order #${pkg.order_number}`) && (
             <div className="flex items-center gap-2 text-xs">
               <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
               <span className="text-muted-foreground">Order</span>

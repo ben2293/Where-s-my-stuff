@@ -295,4 +295,61 @@ async function syncGmail(userTokens, lastSyncMs) {
   return { packages: results, freshAccessToken };
 }
 
-module.exports = { getAuthUrl, exchangeCode, syncGmail };
+async function resyncPackage(userTokens, pkg) {
+  const client = createOAuthClient();
+  client.setCredentials({
+    access_token: userTokens.access_token,
+    refresh_token: userTokens.refresh_token,
+  });
+  let freshAccessToken = null;
+  client.on('tokens', t => { if (t.access_token) freshAccessToken = t.access_token; });
+  const gmail = google.gmail({ version: 'v1', auth: client });
+
+  let messageIds = [];
+
+  if (pkg.thread_id) {
+    const thread = await gmail.users.threads.get({ userId: 'me', id: pkg.thread_id, format: 'minimal' });
+    messageIds = (thread.data.messages || []).map(m => m.id);
+  } else {
+    const q = pkg.tracking_number
+      ? pkg.tracking_number
+      : pkg.order_number
+      ? `"${pkg.order_number}"`
+      : null;
+    if (!q) return { package: null, freshAccessToken };
+    const listRes = await gmail.users.messages.list({ userId: 'me', q, maxResults: 5 });
+    messageIds = (listRes.data.messages || []).map(m => m.id);
+  }
+
+  const results = [];
+  for (const id of messageIds) {
+    try {
+      const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+      const headers = msg.data.payload?.headers || [];
+      const h = (name) => headers.find(h => h.name === name)?.value || '';
+      const from = h('From');
+      const subject = h('Subject');
+      const dateStr = h('Date');
+      if (h('List-Unsubscribe')) continue;
+      const snippet = decodeEntities(msg.data.snippet || '');
+      const { text: body, imageUrl, price } = extractBodyAndImage(msg.data.payload);
+      const parsed = parseEmail({ from, subject, snippet, body });
+      results.push({
+        gmail_message_id: id,
+        thread_id: msg.data.threadId || null,
+        image_url: imageUrl,
+        price,
+        ...parsed,
+        subject: decodeEntities(subject),
+        snippet: snippet.slice(0, 500),
+        received_date: dateStr ? new Date(dateStr).getTime() : Date.now(),
+      });
+    } catch { /* skip bad messages */ }
+  }
+
+  if (!results.length) return { package: null, freshAccessToken };
+  const best = results.reduce((a, b) => b.stage > a.stage ? b : a);
+  return { package: best, freshAccessToken };
+}
+
+module.exports = { getAuthUrl, exchangeCode, syncGmail, resyncPackage };

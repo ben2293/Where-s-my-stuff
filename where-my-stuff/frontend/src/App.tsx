@@ -75,6 +75,16 @@ export default function App() {
     setSyncing(false);
   }
 
+  async function handleResync(id: number) {
+    try {
+      const res = await authFetch(`/api/packages/${id}/resync`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.package) {
+        setPackages(prev => prev.map(p => p.id === id ? data.package : p));
+      }
+    } catch { /* network error */ }
+  }
+
   async function handleMarkDelivered(id: number) {
     const pkg = packages.find(p => p.id === id);
     await authFetch(`/api/packages/${id}/stage`, {
@@ -105,5 +115,5 @@ export default function App() {
 
   return !user
     ? <LoginScreen authError={authError} />
-    : <Dashboard user={user} packages={packages} syncing={syncing} syncError={syncError} onSync={handleSync} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} />;
+    : <Dashboard user={user} packages={packages} syncing={syncing} syncError={syncError} onSync={handleSync} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} />;
 }

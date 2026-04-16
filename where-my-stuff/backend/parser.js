@@ -316,11 +316,30 @@ function extractOrderNumber(subject, snippet, body) {
 
 function extractExpectedDate(snippet, body) {
   const text = `${snippet} ${body}`;
-  const m = text.match(/delivery\s+by[:\s]+(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+\d{4})?)/i)
-    ?? text.match(/(?:expected|get it|deliver[sy]?|arriving?)\s+by\s+((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*\w+\s*\d*)?)/i)
-    ?? text.match(/arriving?\s+(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*\w+\s*\d*)?)/i)
-    ?? text.match(/expected\s+delivery[:\s]+([A-Za-z]+\s+\d{1,2}(?:\s+\w+)?)/i);
-  return m ? m[1].trim() : null;
+
+  // "Delivery by Monday, April 18" (Amazon) / "Expected by Friday, Apr 18"
+  const m1 = text.match(/(?:delivery|expected|estimated)\s+by[:\s]+([A-Za-z]+(?:day)?,\s*[A-Za-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+  if (m1) return m1[1].trim();
+
+  // "delivery by 18 Apr 2025"
+  const m2 = text.match(/(?:delivery|deliver[sy]?|expected|arriving?)\s+(?:by\s+)?(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*(?:\s+\d{4})?)/i);
+  if (m2) return m2[1].trim();
+
+  // "delivery by Apr 18, 2025"
+  const m3 = text.match(/(?:delivery|deliver[sy]?|expected|arriving?)\s+(?:by\s+)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+  if (m3) return m3[1].trim();
+
+  // "get it by Monday" / "arriving tomorrow" / "delivers by Friday, Apr 18"
+  const m4 = text.match(/(?:expected|get it|deliver[sy]?|arriving?)\s+(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i)
+    ?? text.match(/arriving?\s+(?:by\s+|on\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i)
+    ?? text.match(/delivers?\s+by\s+((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow|\w+\s+\d+))/i);
+  if (m4) return m4[1].trim();
+
+  // "Expected delivery: 18 Apr" / "Estimated delivery: Monday"
+  const m5 = text.match(/(?:expected|estimated)\s+delivery[:\s]+([A-Za-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+  if (m5) return m5[1].trim();
+
+  return null;
 }
 
 function parseEmail({ from, subject, snippet, body = '' }) {

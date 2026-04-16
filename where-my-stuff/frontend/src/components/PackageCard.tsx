@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Copy, Check, X, Hash, ExternalLink } from 'lucide-react';
+import { Copy, Check, X, Hash, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { countdownLabel } from '@/lib/dates';
 import type { Package } from '../types';
 
 interface Props {
   pkg: Package;
   onMute: (merchant: string) => void;
   onMarkDelivered: (id: number) => void;
+  onResync: (id: number) => Promise<void>;
 }
 
 const HERO: Record<number, string> = {
@@ -82,15 +84,6 @@ function stageSummary(stage: number, carrier: string | null, subject: string, sn
   return CONTEXTUAL[hint][stage] ?? CONTEXTUAL.general[stage] ?? '';
 }
 
-function extractExpected(snippet: string): string | null {
-  const m = snippet.match(/arriving\s+(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*\w+\s+\d+)?)/i)
-    ?? snippet.match(/expected\s+(?:delivery\s+)?(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\w+\s+\d+))/i)
-    ?? snippet.match(/delivers?\s+by\s+((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\w+\s+\d+))/i);
-  if (!m) return null;
-  const d = m[1].trim();
-  return d.charAt(0).toUpperCase() + d.slice(1);
-}
-
 function formatDate(ts: number): string {
   if (!ts) return '';
   const diff = Math.floor((Date.now() - ts) / 86400_000);
@@ -99,8 +92,8 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-const STATUS_WORDS = /^(has\s+been\s+|has\s+)?(shipped|delivered|dispatched|confirmed|processed|packed|accepted|update)[!.\s–-]*$/i;
 const ORDER_NUM_BLACKLIST = /^(confirmed|confirmation|placed|received|shipped|dispatched|delivered|processing|accepted|cancelled|canceled|payment|update|status)$/i;
+const STATUS_WORDS = /^(has\s+been\s+|has\s+)?(shipped|delivered|dispatched|confirmed|processed|packed|accepted|update)[!.\s–-]*$/i;
 const STRIP_SUBJECT = [
   /ordered?:\s*/gi,
   /your\s+(?:amazon\s+|flipkart\s+|myntra\s+|nykaa\s+|meesho\s+)?order\s+(?:is\s+)?(?:has been\s+)?(?:confirmed|placed|shipped|dispatched|delivered|out for delivery|on its way)?[:\s–-]*/gi,
@@ -127,10 +120,7 @@ function isGoodTitle(s: string): boolean {
 
 function getTitle(pkg: Package): string {
   const fromSubject = cleanText(pkg.subject);
-  if (isGoodTitle(fromSubject)) {
-    const t = fromSubject.slice(0, 55);
-    return `${t}${fromSubject.length > 55 ? '…' : ''}`;
-  }
+  if (isGoodTitle(fromSubject)) return `${fromSubject.slice(0, 55)}${fromSubject.length > 55 ? '…' : ''}`;
   if (pkg.snippet) {
     const fromSnippet = cleanText(pkg.snippet);
     if (isGoodTitle(fromSnippet)) return fromSnippet.slice(0, 55);
@@ -142,14 +132,14 @@ function getTitle(pkg: Package): string {
 function trackingUrl(carrier: string | null, tracking: string | null): string | null {
   if (!tracking) return null;
   const c = (carrier ?? '').toLowerCase();
-  if (c.includes('bluedart'))      return `https://www.bluedart.com/tracking?trackFor=0&track=${tracking}`;
-  if (c.includes('delhivery'))     return `https://www.delhivery.com/track/package/${tracking}`;
-  if (c.includes('ekart'))         return `https://ekartlogistics.com/shipmenttrack/${tracking}`;
-  if (c.includes('dtdc'))          return `https://www.dtdc.in/trace.asp?strCnno=${tracking}`;
-  if (c.includes('xpressbees'))    return `https://www.xpressbees.com/track?awbNo=${tracking}`;
-  if (c.includes('shadowfax'))     return `https://track.shadowfax.in/?awb=${tracking}`;
-  if (c.includes('ecom'))          return `https://ecomexpress.in/tracking/?awb_field=${tracking}`;
-  if (c.includes('amazon'))        return `https://www.amazon.in/progress-tracker/package/?ref=ppx_yo_dt_b_track_package`;
+  if (c.includes('bluedart'))   return `https://www.bluedart.com/tracking?trackFor=0&track=${tracking}`;
+  if (c.includes('delhivery'))  return `https://www.delhivery.com/track/package/${tracking}`;
+  if (c.includes('ekart'))      return `https://ekartlogistics.com/shipmenttrack/${tracking}`;
+  if (c.includes('dtdc'))       return `https://www.dtdc.in/trace.asp?strCnno=${tracking}`;
+  if (c.includes('xpressbees')) return `https://www.xpressbees.com/track?awbNo=${tracking}`;
+  if (c.includes('shadowfax'))  return `https://track.shadowfax.in/?awb=${tracking}`;
+  if (c.includes('ecom'))       return `https://ecomexpress.in/tracking/?awb_field=${tracking}`;
+  if (c.includes('amazon'))     return `https://www.amazon.in/progress-tracker/package/?ref=ppx_yo_dt_b_track_package`;
   if (c.includes('india post') || c.includes('speed post')) return `https://www.indiapost.gov.in/VAS/Pages/trackconsignment.aspx`;
   return `https://www.google.com/search?q=${encodeURIComponent(`track ${tracking} ${carrier ?? ''}`)}`;
 }
@@ -174,24 +164,27 @@ function ProgressBar({ stage, color, deliverAnim, glow }: { stage: number; color
   );
 }
 
-export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
+export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync }: Props) {
   const [copied, setCopied]       = useState(false);
   const [muting, setMuting]       = useState(false);
   const [imgOk, setImgOk]         = useState(true);
   const [delivering, setDelivering] = useState(false);
   const [glow, setGlow]           = useState(false);
+  const [resyncing, setResyncing] = useState(false);
 
-  const stage     = Math.min(pkg.stage, 6);
-  const color     = STAGE_COLOR[stage];
-  const accent    = MERCHANT_ACCENT[pkg.merchant] ?? '#6366F1';
-  const emoji     = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
-  const hero      = HERO[stage] ?? pkg.status;
-  const summary   = stageSummary(stage, pkg.carrier, pkg.subject, pkg.snippet ?? '');
-  const title     = getTitle(pkg);
+  const stage    = Math.min(pkg.stage, 6);
+  const color    = STAGE_COLOR[stage];
+  const accent   = MERCHANT_ACCENT[pkg.merchant] ?? '#6366F1';
+  const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
+  const hero     = HERO[stage] ?? pkg.status;
+  const summary  = stageSummary(stage, pkg.carrier, pkg.subject, pkg.snippet ?? '');
+  const title    = getTitle(pkg);
   const titleLine = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
-  const expected  = pkg.expected_date ?? (pkg.snippet ? extractExpected(pkg.snippet) : null);
-  const hasImage  = !!(pkg.image_url && imgOk);
-  const trackUrl  = trackingUrl(pkg.carrier, pkg.tracking_number);
+  const hasImage = !!(pkg.image_url && imgOk);
+  const trackUrl = trackingUrl(pkg.carrier, pkg.tracking_number);
+
+  const countdown = countdownLabel(pkg.expected_date, pkg.received_date, stage);
+  const isOverdue = countdown?.overdue ?? false;
 
   const copyTracking = async () => {
     if (!pkg.tracking_number) return;
@@ -199,10 +192,17 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleResync = async () => {
+    setResyncing(true);
+    await onResync(pkg.id);
+    setResyncing(false);
+  };
+
   return (
     <Card
       className={cn(
         'pkg-card relative overflow-hidden pt-0 transition-all duration-200',
+        isOverdue && 'ring-1 ring-red-800',
         muting && 'opacity-0 scale-95'
       )}
       style={{ transition: muting ? 'opacity 280ms, transform 280ms' : undefined }}
@@ -210,7 +210,6 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
     >
       {/* Top image / accent area */}
       <div className="relative aspect-video overflow-hidden bg-secondary">
-        {/* Dim overlay */}
         <div className="absolute inset-0 z-10 bg-black/40" />
 
         {hasImage ? (
@@ -229,18 +228,25 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
           </div>
         )}
 
-        {/* Stage badge top-right */}
+        {/* Stage badge top-right — overdue overrides */}
         <div className="absolute top-3 right-3 z-20">
-          <Badge
-            variant="secondary"
-            className="text-[11px] font-semibold border-0"
-            style={{ background: `${color}25`, color }}
-          >
-            {hero}
-          </Badge>
+          {isOverdue ? (
+            <Badge className="text-[11px] font-semibold border-0 bg-red-950/80 text-red-400 gap-1">
+              <AlertCircle className="w-3 h-3" />
+              {countdown!.text}
+            </Badge>
+          ) : (
+            <Badge
+              variant="secondary"
+              className="text-[11px] font-semibold border-0"
+              style={{ background: `${color}25`, color }}
+            >
+              {hero}
+            </Badge>
+          )}
         </div>
 
-        {/* Dismiss button top-left */}
+        {/* Dismiss top-left */}
         <button
           onClick={() => { setMuting(true); setTimeout(() => onMute(pkg.merchant), 280); }}
           className="absolute top-3 left-3 z-20 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white/60 hover:text-white hover:bg-black/60 transition-colors"
@@ -255,33 +261,33 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
-            {title && (
-              <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>
-            )}
+            {title && <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>}
           </div>
           <CardAction>
-            {pkg.price && (
-              <span className="text-sm font-semibold text-foreground">
+            {pkg.price != null && (
+              <span className="text-sm font-bold text-foreground whitespace-nowrap">
                 ₹{pkg.price.toLocaleString('en-IN')}
               </span>
             )}
           </CardAction>
         </div>
 
-        {/* Date + expected */}
-        <div className="flex items-center gap-2 mt-1">
+        {/* Date + countdown */}
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-xs text-muted-foreground">{formatDate(pkg.received_date)}</span>
-          {expected && (
+          {countdown && !isOverdue && (
             <>
               <span className="text-muted-foreground/40 text-xs">·</span>
-              <span className="text-xs text-muted-foreground">Arrives <span className="font-medium text-foreground">{expected}</span></span>
+              <span className="text-xs font-medium" style={{ color }}>
+                {countdown.text}
+              </span>
             </>
           )}
         </div>
 
         {/* Progress bar */}
         <div className="mt-3">
-          <ProgressBar stage={stage} color={color} deliverAnim={delivering} glow={glow} />
+          <ProgressBar stage={stage} color={isOverdue ? '#EF4444' : color} deliverAnim={delivering} glow={glow} />
         </div>
       </CardHeader>
 
@@ -310,7 +316,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
         </div>
       )}
 
-      {/* Summary + actions */}
+      {/* Contextual summary */}
       <div className="px-6 pb-2 pt-1">
         <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
       </div>
@@ -337,6 +343,16 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
         >
           <Check className="w-3 h-3" />
           Got it
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground/50 hover:text-muted-foreground px-2"
+          onClick={handleResync}
+          disabled={resyncing}
+          aria-label="Re-sync this order"
+        >
+          <RefreshCw className={cn('w-3 h-3', resyncing && 'animate-spin')} />
         </Button>
         <p className="text-[10px] text-muted-foreground/40 text-right leading-tight ml-auto">From<br />your emails</p>
       </CardFooter>

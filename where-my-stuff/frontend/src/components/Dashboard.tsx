@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Package2, Search, X, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { parseExpectedDate } from '@/lib/dates';
 import Header from './Header';
 import PackageCard from './PackageCard';
 import CompactPackageRow from './CompactPackageRow';
@@ -14,10 +15,16 @@ interface Props {
   onSync: () => void;
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
+  onResync: (id: number) => Promise<void>;
 }
 
-type Filter = 'all' | 'active' | 'delivered' | 'failed';
-const FILTER_LABELS: Record<Filter, string> = { all: 'All', active: 'Active', delivered: 'Delivered', failed: 'Failed' };
+type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'today' | 'tomorrow';
+type DateRange  = 'all' | '7d' | '30d' | '90d';
+
+const STAGE_LABELS: Record<StageFilter, string> = {
+  all: 'All', active: 'Active', delivered: 'Delivered',
+  failed: 'Failed', today: 'Today', tomorrow: 'Tomorrow',
+};
 
 const DEMO: Package[] = [
   { id: -1, user_email: '', gmail_message_id: 'd1', order_number: '405-3324017-6516318', updated_at: 0,
@@ -29,12 +36,12 @@ const DEMO: Package[] = [
     merchant: 'Myntra', carrier: 'Ekart', tracking_number: 'FMPC0172834650',
     status: 'Out for Delivery', stage: 4, subject: 'Roadster Men Slim Fit Jeans',
     snippet: 'Your order is out for delivery. Expected by today.',
-    received_date: Date.now() - 3 * 3600_000 },
+    received_date: Date.now() - 3 * 3600_000, expected_date: 'today' },
   { id: -3, user_email: '', gmail_message_id: 'd3', order_number: null, updated_at: 0,
     merchant: 'Flipkart', carrier: 'Ekart', tracking_number: 'FMPP0098761234',
     status: 'Dispatched', stage: 2, subject: 'boAt Airdopes 141',
     snippet: 'Your order has been dispatched from the seller.',
-    received_date: Date.now() - 1 * 86400_000 },
+    received_date: Date.now() - 1 * 86400_000, expected_date: 'tomorrow' },
   { id: -4, user_email: '', gmail_message_id: 'd4', order_number: null, updated_at: 0,
     merchant: 'Nykaa', carrier: 'Delhivery', tracking_number: null,
     status: 'Order Confirmed', stage: 0, subject: 'Lakme 9to5 Weightless Mousse',
@@ -68,7 +75,8 @@ function mergeGroup(group: Package[]): Package {
   const bestSubject = group.slice().sort((a, b) => subjectScore(b.subject) - subjectScore(a.subject))[0].subject;
   const bestImage = group.find(p => p.image_url)?.image_url ?? null;
   const bestPrice = group.find(p => p.price)?.price ?? null;
-  return { ...winner, subject: bestSubject, image_url: bestImage, price: bestPrice };
+  const bestExpected = group.find(p => p.expected_date)?.expected_date ?? null;
+  return { ...winner, subject: bestSubject, image_url: bestImage, price: bestPrice, expected_date: bestExpected };
 }
 
 function deduplicate(pkgs: Package[]): Package[] {
@@ -107,21 +115,44 @@ function deduplicate(pkgs: Package[]): Package[] {
     .sort((a, b) => b.received_date - a.received_date);
 }
 
-function applyFilter(pkgs: Package[], filter: Filter): Package[] {
+function applyStageFilter(pkgs: Package[], filter: StageFilter): Package[] {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tMs = today.getTime();
+
   if (filter === 'delivered') return pkgs.filter(p => p.stage === 5);
   if (filter === 'failed')    return pkgs.filter(p => p.stage === 6);
   if (filter === 'active')    return pkgs.filter(p => p.stage > 0 && p.stage < 5);
+  if (filter === 'today')     return pkgs.filter(p => {
+    if (p.stage >= 5) return false;
+    const d = parseExpectedDate(p.expected_date, p.received_date);
+    return d !== null && d.getTime() >= tMs && d.getTime() < tMs + 86400_000;
+  });
+  if (filter === 'tomorrow')  return pkgs.filter(p => {
+    if (p.stage >= 5) return false;
+    const d = parseExpectedDate(p.expected_date, p.received_date);
+    return d !== null && d.getTime() >= tMs + 86400_000 && d.getTime() < tMs + 2 * 86400_000;
+  });
   return pkgs;
 }
 
-export default function Dashboard({ user, packages, syncing, syncError, onSync, onLogout, onMarkDelivered }: Props) {
-  const [filter, setFilter]   = useState<Filter>('all');
-  const [query, setQuery]     = useState('');
-  const [blacklist, setBlacklist] = useState<Set<string>>(() => {
+function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
+  if (range === 'all') return pkgs;
+  const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
+  const cutoff = Date.now() - days * 86400_000;
+  return pkgs.filter(p => p.received_date >= cutoff);
+}
+
+const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
+
+export default function Dashboard({ user, packages, syncing, syncError, onSync, onLogout, onMarkDelivered, onResync }: Props) {
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
+  const [dateRange, setDateRange]     = useState<DateRange>('all');
+  const [query, setQuery]             = useState('');
+  const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
     catch { return new Set(); }
   });
-  const [showMuted, setShowMuted] = useState(false);
+  const [showMuted, setShowMuted]     = useState(false);
 
   const mute = (m: string) => setBlacklist(prev => {
     const n = new Set(prev); n.add(m);
@@ -134,6 +165,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
 
   const isDemo = packages.length === 0 && !user.last_sync;
   const source = useMemo(() => isDemo ? DEMO : deduplicate(packages), [packages, isDemo]);
+
   const visible = useMemo(() => source.filter(p => {
     if (blacklist.has(p.merchant)) return false;
     const hasOrderId = p.order_number && !ORDER_BLACKLIST.test(p.order_number);
@@ -143,7 +175,8 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
   }), [source, blacklist]);
 
   const filtered = useMemo(() => {
-    let list = applyFilter(visible, filter);
+    let list = applyStageFilter(visible, stageFilter);
+    list = applyDateRange(list, dateRange);
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter(p =>
@@ -155,9 +188,9 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
       );
     }
     return list;
-  }, [visible, filter, query]);
+  }, [visible, stageFilter, dateRange, query]);
 
-  const count = (f: Filter) => applyFilter(visible, f).length;
+  const count = (f: StageFilter) => applyStageFilter(visible, f).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -192,7 +225,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
           ))}
         </div>
 
-        {/* Muted */}
+        {/* Muted merchants */}
         {blacklist.size > 0 && (
           <div className="mb-4">
             <button onClick={() => setShowMuted(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -223,25 +256,42 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
           {query && <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>}
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
-          {(['all','active','delivered','failed'] as Filter[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
+        {/* Stage filters */}
+        <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+          {(['all','active','delivered','failed','today','tomorrow'] as StageFilter[]).map(f => (
+            <button key={f} onClick={() => setStageFilter(f)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                filter === f
+                stageFilter === f
                   ? 'bg-foreground text-background border-foreground'
                   : 'bg-card text-muted-foreground border-border hover:border-muted-foreground'
               }`}
             >
-              {FILTER_LABELS[f]}
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filter === f ? 'bg-black/20' : 'bg-secondary text-muted-foreground'}`}>
-                {count(f)}
-              </span>
+              {STAGE_LABELS[f]}
+              {f !== 'today' && f !== 'tomorrow' && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${stageFilter === f ? 'bg-black/20' : 'bg-secondary text-muted-foreground'}`}>
+                  {count(f)}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Grid */}
+        {/* Date range filters */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          {(['all','7d','30d','90d'] as DateRange[]).map(r => (
+            <button key={r} onClick={() => setDateRange(r)}
+              className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border transition-all ${
+                dateRange === r
+                  ? 'bg-secondary text-foreground border-muted-foreground'
+                  : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground/60'
+              }`}
+            >
+              {DATE_RANGE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+
+        {/* Package list */}
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="w-12 h-12 bg-card border border-border rounded-2xl flex items-center justify-center mb-4">
@@ -267,7 +317,9 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
                     Active · {active.length}
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger">
-                    {active.map(pkg => <PackageCard key={pkg.id} pkg={pkg} onMute={mute} onMarkDelivered={onMarkDelivered} />)}
+                    {active.map(pkg => (
+                      <PackageCard key={pkg.id} pkg={pkg} onMute={mute} onMarkDelivered={onMarkDelivered} onResync={onResync} />
+                    ))}
                   </div>
                 </section>
               )}

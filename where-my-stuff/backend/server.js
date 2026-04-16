@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const { getDb, get, all, run } = require('./db');
-const { getAuthUrl, exchangeCode, syncGmail } = require('./gmail');
+const { getAuthUrl, exchangeCode, syncGmail, resyncPackage } = require('./gmail');
 
 const app = express();
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -132,6 +132,41 @@ app.post('/api/sync', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('Sync error:', e.message);
     res.status(500).json({ error: e.message || 'Sync failed' });
+  }
+});
+
+app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const pkg = get('SELECT * FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
+  if (!pkg) return res.status(404).json({ error: 'Not found' });
+  const user = req.user;
+  if (!user?.access_token) return res.status(401).json({ error: 'No Gmail access' });
+  try {
+    const { package: p, freshAccessToken } = await resyncPackage(
+      { access_token: user.access_token, refresh_token: user.refresh_token },
+      pkg
+    );
+    if (freshAccessToken) run('UPDATE users SET access_token = ? WHERE email = ?', [freshAccessToken, req.userEmail]);
+    if (p) {
+      run(
+        `UPDATE packages SET
+           merchant=?, carrier=?, status=?, stage=?,
+           tracking_number=COALESCE(?, tracking_number),
+           order_number=COALESCE(?, order_number),
+           expected_date=COALESCE(?, expected_date),
+           image_url=COALESCE(?, image_url),
+           price=COALESCE(?, price),
+           updated_at=strftime('%s','now')
+         WHERE id=?`,
+        [p.merchant, p.carrier, p.status, p.stage,
+         p.trackingNumber, p.orderNumber, p.expectedDate,
+         p.image_url, p.price, id]
+      );
+    }
+    res.json({ success: true, package: get('SELECT * FROM packages WHERE id = ?', [id]) });
+  } catch (e) {
+    console.error('Resync error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

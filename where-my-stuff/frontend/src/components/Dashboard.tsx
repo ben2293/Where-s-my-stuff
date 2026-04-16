@@ -24,7 +24,7 @@ type DateRange  = 'all' | '7d' | '30d' | '90d';
 
 const STAGE_LABELS: Record<StageFilter, string> = {
   all: 'All', active: 'Active', delivered: 'Delivered',
-  failed: 'Return', today: 'Today', tomorrow: 'Tomorrow',
+  failed: 'Failed', today: 'Today', tomorrow: 'Tomorrow',
 };
 
 const DEMO: Package[] = [

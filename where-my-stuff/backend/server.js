@@ -108,7 +108,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
-           status=excluded.status, stage=excluded.stage,
+           stage=CASE WHEN stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
+           status=CASE WHEN stage>=5 THEN status ELSE excluded.status END,
            thread_id=COALESCE(excluded.thread_id, thread_id),
            image_url=COALESCE(excluded.image_url, image_url),
            price=COALESCE(excluded.price, price),

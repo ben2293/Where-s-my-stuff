@@ -174,11 +174,12 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
 app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   const { id } = req.params;
   const { stage } = req.body;
-  if (![5, 6].includes(stage)) return res.status(400).json({ error: 'Invalid stage' });
+  if (typeof stage !== 'number' || stage < 0 || stage > 6) return res.status(400).json({ error: 'Invalid stage' });
   const pkg = get('SELECT id FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
   if (!pkg) return res.status(404).json({ error: 'Not found' });
+  const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned' };
   run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
-    [stage, stage === 5 ? 'Delivered' : 'Failed / Returned', id]);
+    [stage, STATUS_MAP[stage] ?? 'Order Confirmed', id]);
   res.json({ success: true });
 });
 

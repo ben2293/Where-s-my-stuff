@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, X, Hash, ExternalLink } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { Package } from '../types';
 
 interface Props {
@@ -14,19 +18,19 @@ const HERO: Record<number, string> = {
 };
 
 const STAGE_COLOR: Record<number, string> = {
-  0: '#9CA3AF', 1: '#A78BFA', 2: '#F59E0B',
+  0: '#6B7280', 1: '#A78BFA', 2: '#F59E0B',
   3: '#3B82F6', 4: '#10B981', 5: '#16A34A', 6: '#EF4444',
 };
 
 const MERCHANT_ACCENT: Record<string, string> = {
   'Amazon': '#FF6B00', 'Flipkart': '#2874F0', 'Myntra': '#FF3F6C',
   'Nykaa': '#FC2779', 'Nykaa Fashion': '#FC2779', 'Meesho': '#F43F5E',
-  'AJIO': '#475569', 'Zara': '#1F2937', 'H&M': '#E11D48',
+  'AJIO': '#475569', 'Zara': '#E5E7EB', 'H&M': '#E11D48',
   'Mango': '#D97706', 'Swiggy': '#FC8019', 'Swiggy Instamart': '#FC8019',
   'Instamart': '#FC8019', 'Blinkit': '#FBBF24', 'Zepto': '#A855F7',
-  'BigBasket': '#65A30D', 'Tata Cliq': '#7C3AED', 'Apple': '#6B7280',
-  'Croma': '#16A34A', 'Puma': '#DC2626', 'Nike': '#111827',
-  'Adidas': '#111827', 'boAt': '#7C3AED', 'Noise': '#0891B2',
+  'BigBasket': '#65A30D', 'Tata Cliq': '#7C3AED', 'Apple': '#9CA3AF',
+  'Croma': '#16A34A', 'Puma': '#DC2626', 'Nike': '#E5E7EB',
+  'Adidas': '#E5E7EB', 'boAt': '#7C3AED', 'Noise': '#0891B2',
   'Mamaearth': '#65A30D', 'Lenskart': '#0891B2', 'Decathlon': '#2563EB',
 };
 
@@ -78,7 +82,6 @@ function stageSummary(stage: number, carrier: string | null, subject: string, sn
   return CONTEXTUAL[hint][stage] ?? CONTEXTUAL.general[stage] ?? '';
 }
 
-// Extract "Expected by Friday" or "arriving Apr 8" from snippet
 function extractExpected(snippet: string): string | null {
   const m = snippet.match(/arriving\s+(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tomorrow)(?:\s*,?\s*\w+\s+\d+)?)/i)
     ?? snippet.match(/expected\s+(?:delivery\s+)?(?:by\s+)?((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|\w+\s+\d+))/i)
@@ -104,7 +107,6 @@ const STRIP_SUBJECT = [
   /^(?:has\s+been\s+|has\s+)?(?:shipped|delivered|dispatched|out for delivery|order confirmed|order update|arrived)[!.\s–-]*/i,
   /\b\d{3}-\d{7}-\d{7}\b/g,
   /\band\s+\d+\s+more\s+items?\b/gi,
-  // Strip bare date fragments left after prefix removal: "on Mar 25", "on 25 Mar"
   /^on\s+(?:\d+\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d*/gi,
 ];
 
@@ -118,8 +120,8 @@ function isGoodTitle(s: string): boolean {
   if (s.length <= 6) return false;
   if (STATUS_WORDS.test(s)) return false;
   if (/^(hey|dear|hi|hello)\s+\w/i.test(s)) return false;
-  if (/^\d+\s+item/i.test(s)) return false;   // "1 item | Order #"
-  if (/^order\s*#?\s*$/i.test(s)) return false; // bare "Order #"
+  if (/^\d+\s+item/i.test(s)) return false;
+  if (/^order\s*#?\s*$/i.test(s)) return false;
   return true;
 }
 
@@ -127,11 +129,11 @@ function getTitle(pkg: Package): string {
   const fromSubject = cleanText(pkg.subject);
   if (isGoodTitle(fromSubject)) {
     const t = fromSubject.slice(0, 55);
-    return `"${t}${fromSubject.length > 55 ? '…' : ''}"`;
+    return `${t}${fromSubject.length > 55 ? '…' : ''}`;
   }
   if (pkg.snippet) {
     const fromSnippet = cleanText(pkg.snippet);
-    if (isGoodTitle(fromSnippet)) return `"${fromSnippet.slice(0, 55)}"`;
+    if (isGoodTitle(fromSnippet)) return fromSnippet.slice(0, 55);
   }
   if (pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number)) return `Order #${pkg.order_number}`;
   return '';
@@ -149,7 +151,6 @@ function trackingUrl(carrier: string | null, tracking: string | null): string | 
   if (c.includes('ecom'))          return `https://ecomexpress.in/tracking/?awb_field=${tracking}`;
   if (c.includes('amazon'))        return `https://www.amazon.in/progress-tracker/package/?ref=ppx_yo_dt_b_track_package`;
   if (c.includes('india post') || c.includes('speed post')) return `https://www.indiapost.gov.in/VAS/Pages/trackconsignment.aspx`;
-  // Fallback: Google the tracking number
   return `https://www.google.com/search?q=${encodeURIComponent(`track ${tracking} ${carrier ?? ''}`)}`;
 }
 
@@ -161,7 +162,7 @@ function ProgressBar({ stage, color, deliverAnim, glow }: { stage: number; color
   useEffect(() => { const t = setTimeout(() => setW(target), 80); return () => clearTimeout(t); }, [target]);
 
   return (
-    <div className="relative h-1.5 rounded-full bg-gray-100 overflow-visible">
+    <div className="relative h-1.5 rounded-full bg-white/10 overflow-visible">
       <div className="absolute inset-y-0 left-0 rounded-full"
         style={{
           width: `${w}%`,
@@ -190,8 +191,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
   const titleLine = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
   const expected  = pkg.expected_date ?? (pkg.snippet ? extractExpected(pkg.snippet) : null);
   const hasImage  = !!(pkg.image_url && imgOk);
-
-  const trackUrl = trackingUrl(pkg.carrier, pkg.tracking_number);
+  const trackUrl  = trackingUrl(pkg.carrier, pkg.tracking_number);
 
   const copyTracking = async () => {
     if (!pkg.tracking_number) return;
@@ -200,109 +200,146 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered }: Props) {
   };
 
   return (
-    <article
-      className="bg-white rounded-2xl border border-gray-200 overflow-hidden hover:-translate-y-0.5 transition-all duration-200 shadow-sm"
-      style={{ opacity: muting ? 0 : 1, transform: muting ? 'scale(0.97)' : undefined, transition: 'opacity 280ms, transform 280ms, box-shadow 180ms, translate 180ms' }}
+    <Card
+      className={cn(
+        'pkg-card relative overflow-hidden pt-0 transition-all duration-200',
+        muting && 'opacity-0 scale-95'
+      )}
+      style={{ transition: muting ? 'opacity 280ms, transform 280ms' : undefined }}
       aria-label={`${pkg.merchant} — ${hero}`}
     >
-      {/* Header: Merchant · Carrier + image */}
-      <div className="px-4 pt-4 pb-0 flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-gray-900 text-base leading-tight">{titleLine}</p>
-          {title && <p className="text-xs text-gray-400 mt-0.5 truncate">{title}</p>}
+      {/* Top image / accent area */}
+      <div className="relative aspect-video overflow-hidden bg-secondary">
+        {/* Dim overlay */}
+        <div className="absolute inset-0 z-10 bg-black/40" />
+
+        {hasImage ? (
+          <img
+            src={pkg.image_url!}
+            alt=""
+            className="relative z-0 w-full h-full object-cover"
+            onError={() => setImgOk(false)}
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center text-5xl"
+            style={{ background: `linear-gradient(135deg, ${accent}30 0%, ${accent}10 100%)` }}
+          >
+            {emoji}
+          </div>
+        )}
+
+        {/* Stage badge top-right */}
+        <div className="absolute top-3 right-3 z-20">
+          <Badge
+            variant="secondary"
+            className="text-[11px] font-semibold border-0"
+            style={{ background: `${color}25`, color }}
+          >
+            {hero}
+          </Badge>
         </div>
 
-        <div
-          className="w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center text-3xl flex-shrink-0"
-          style={{ background: `${accent}12`, border: `1px solid ${accent}20` }}
-          aria-hidden
-        >
-          {hasImage
-            ? <img src={pkg.image_url!} alt="" className="w-full h-full object-cover" onError={() => setImgOk(false)} />
-            : emoji}
-        </div>
-
+        {/* Dismiss button top-left */}
         <button
           onClick={() => { setMuting(true); setTimeout(() => onMute(pkg.merchant), 280); }}
-          className="w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 mt-0.5"
+          className="absolute top-3 left-3 z-20 w-6 h-6 flex items-center justify-center rounded-full bg-black/40 text-white/60 hover:text-white hover:bg-black/60 transition-colors"
           aria-label={`Hide all ${pkg.merchant} packages`}
         >
           <X className="w-3 h-3" />
         </button>
       </div>
 
-      {/* Status + date + expected + progress bar */}
-      <div className="px-4 pt-3 pb-0">
-        {/* Hero status */}
-        <p className="text-2xl font-bold tracking-tight leading-none" style={{ color }}>{hero}</p>
+      {/* Card header */}
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
+            {title && (
+              <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>
+            )}
+          </div>
+          <CardAction>
+            {pkg.price && (
+              <span className="text-sm font-semibold text-foreground">
+                ₹{pkg.price.toLocaleString('en-IN')}
+              </span>
+            )}
+          </CardAction>
+        </div>
 
-        {/* Date — big, prominent */}
-        <p className="text-lg font-semibold text-gray-700 mt-1">{formatDate(pkg.received_date)}</p>
+        {/* Date + expected */}
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-xs text-muted-foreground">{formatDate(pkg.received_date)}</span>
+          {expected && (
+            <>
+              <span className="text-muted-foreground/40 text-xs">·</span>
+              <span className="text-xs text-muted-foreground">Arrives <span className="font-medium text-foreground">{expected}</span></span>
+            </>
+          )}
+        </div>
 
-        {/* Expected delivery */}
-        {expected && (
-          <p className="text-xs text-gray-400 mt-0.5">Expected by <span className="font-semibold text-gray-600">{expected}</span></p>
-        )}
-
+        {/* Progress bar */}
         <div className="mt-3">
           <ProgressBar stage={stage} color={color} deliverAnim={delivering} glow={glow} />
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Info rows */}
+      {/* Tracking / order info */}
       {(pkg.order_number || pkg.tracking_number) && (
-        <>
-          <div className="mx-4 mt-3 border-t border-gray-100" />
-          <div className="px-4 py-2.5 space-y-2">
-            {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && (
-              <div className="flex items-center gap-2 text-xs">
-                <Hash className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-                <span className="text-gray-400">Order</span>
-                <span className="font-mono text-gray-600 ml-auto">{pkg.order_number}</span>
+        <div className="px-6 pb-2 space-y-1.5">
+          {pkg.order_number && !ORDER_NUM_BLACKLIST.test(pkg.order_number) && (
+            <div className="flex items-center gap-2 text-xs">
+              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+              <span className="text-muted-foreground">Order</span>
+              <span className="font-mono text-foreground ml-auto">{pkg.order_number}</span>
+            </div>
+          )}
+          {pkg.tracking_number && (
+            <div className="flex items-center gap-2 text-xs">
+              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+              <span className="text-muted-foreground">Tracking</span>
+              <div className="ml-auto flex items-center gap-1.5 min-w-0">
+                <span className="font-mono text-foreground truncate max-w-[130px]">{pkg.tracking_number}</span>
+                <button onClick={copyTracking} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors" aria-label="Copy">
+                  {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                </button>
               </div>
-            )}
-            {pkg.tracking_number && (
-              <div className="flex items-center gap-2 text-xs">
-                <Hash className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-                <span className="text-gray-400">Tracking</span>
-                <div className="ml-auto flex items-center gap-1.5 min-w-0">
-                  <span className="font-mono text-gray-600 truncate max-w-[130px]">{pkg.tracking_number}</span>
-                  <button onClick={copyTracking} className="flex-shrink-0 text-gray-300 hover:text-gray-600 transition-colors" aria-label="Copy">
-                    {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Actions + contextual message */}
-      <div className="mx-4 border-t border-gray-100" />
-      <div className="px-4 pt-2.5 pb-1">
-        <p className="text-xs text-gray-400 leading-relaxed">{summary}</p>
+      {/* Summary + actions */}
+      <div className="px-6 pb-2 pt-1">
+        <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
       </div>
-      <div className="px-4 pb-3 flex items-center gap-2">
+
+      <CardFooter className="gap-2 pt-0">
         {trackUrl && (
-          <a href={trackUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
-            <ExternalLink className="w-3 h-3" />
-            Track
-          </a>
+          <Button variant="outline" size="sm" asChild>
+            <a href={trackUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3 h-3" />
+              Track
+            </a>
+          </Button>
         )}
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          className="hover:bg-green-950 hover:border-green-800 hover:text-green-400"
           onClick={() => {
             setDelivering(true);
             setTimeout(() => setGlow(true), 720);
             setTimeout(() => setMuting(true), 1050);
             setTimeout(() => onMarkDelivered(pkg.id), 1330);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-green-50 hover:border-green-300 hover:text-green-700 transition-all">
+        >
           <Check className="w-3 h-3" />
           Got it
-        </button>
-        <p className="text-[10px] text-gray-300 text-right leading-tight ml-auto">From<br />your emails</p>
-      </div>
-    </article>
+        </Button>
+        <p className="text-[10px] text-muted-foreground/40 text-right leading-tight ml-auto">From<br />your emails</p>
+      </CardFooter>
+    </Card>
   );
 }

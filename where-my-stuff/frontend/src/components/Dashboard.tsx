@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Package2, Search, X, EyeOff, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import Header from './Header';
 import PackageCard from './PackageCard';
 import CompactPackageRow from './CompactPackageRow';
@@ -44,9 +45,7 @@ const DEMO: Package[] = [
 const ORDER_BLACKLIST = /^(number|no|id|update|summary|details|status|confirmation|confirmed|regular|express|placed|received|accepted|cancelled|canceled)$/i;
 
 function extractOrderId(pkg: Package): string | null {
-  // Prefer the DB-stored order_number (extracted from full email body)
   if (pkg.order_number && !ORDER_BLACKLIST.test(pkg.order_number)) return pkg.order_number;
-  // Fall back to parsing subject + snippet
   const text = `${pkg.subject} ${pkg.snippet ?? ''}`;
   const m = text.match(/\b(\d{3}-\d{7}-\d{7})\b/)
     ?? text.match(/\border\s*(?:number|no|id|#)?\s*[#:\s]+([A-Z0-9]{4,20})\b/i);
@@ -55,11 +54,10 @@ function extractOrderId(pkg: Package): string | null {
   return m[1];
 }
 
-// Score subjects: higher = more product-name-like
 function subjectScore(subject: string): number {
-  if (/^delivered:\s*\d+\s*item/i.test(subject)) return 0;      // "Delivered: 1 item | Order #" — useless
+  if (/^delivered:\s*\d+\s*item/i.test(subject)) return 0;
   if (/^(shipped|out for delivery|dispatched):\s*\d/i.test(subject)) return 1;
-  if (/^ordered?:/i.test(subject)) return 50;                   // "Ordered: Lao Gan Ma..." — has product name
+  if (/^ordered?:/i.test(subject)) return 50;
   return 2 + Math.min(subject.length, 30);
 }
 
@@ -74,7 +72,6 @@ function mergeGroup(group: Package[]): Package {
 }
 
 function deduplicate(pkgs: Package[]): Package[] {
-  // Pass 1: group by order ID → tracking → thread → subject
   const groups = new Map<string, Package[]>();
   for (const pkg of pkgs) {
     const orderId = extractOrderId(pkg);
@@ -90,8 +87,6 @@ function deduplicate(pkgs: Package[]): Package[] {
     groups.set(key, arr);
   }
 
-  // Pass 2: merge any groups that share a tracking number
-  // (handles case where order ID extraction differs across email types)
   const trkToKey = new Map<string, string>();
   const merged = new Map<string, Package[]>();
   for (const [key, group] of groups) {
@@ -111,7 +106,6 @@ function deduplicate(pkgs: Package[]): Package[] {
     .map(mergeGroup)
     .sort((a, b) => b.received_date - a.received_date);
 }
-
 
 function applyFilter(pkgs: Package[], filter: Filter): Package[] {
   if (filter === 'delivered') return pkgs.filter(p => p.stage === 5);
@@ -142,7 +136,6 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
   const source = useMemo(() => isDemo ? DEMO : deduplicate(packages), [packages, isDemo]);
   const visible = useMemo(() => source.filter(p => {
     if (blacklist.has(p.merchant)) return false;
-    // Hide active cards with no way to identify/track them
     const hasOrderId = p.order_number && !ORDER_BLACKLIST.test(p.order_number);
     const hasTracking = !!p.tracking_number;
     if (!hasOrderId && !hasTracking && p.stage >= 1 && p.stage <= 4) return false;
@@ -167,20 +160,20 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
   const count = (f: Filter) => applyFilter(visible, f).length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Header user={user} syncing={syncing} onSync={onSync} onLogout={onLogout} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
         {isDemo && (
-          <div className="mb-5 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2.5 text-sm text-indigo-700">
-            <Sparkles className="w-4 h-4 flex-shrink-0" />
+          <div className="mb-5 px-4 py-3 bg-secondary border border-border rounded-xl flex items-center gap-2.5 text-sm text-foreground">
+            <Sparkles className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
             <span><strong>Demo</strong> — hit Sync to load your real Gmail deliveries.</span>
           </div>
         )}
 
         {syncError && (
-          <div className="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm" role="alert">
+          <div className="mb-5 px-4 py-3 bg-red-950 border border-red-900 rounded-xl text-red-300 text-sm" role="alert">
             {syncError}
           </div>
         )}
@@ -188,13 +181,13 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { label: 'Active',    value: count('active'),    color: 'text-blue-600' },
-            { label: 'Delivered', value: count('delivered'), color: 'text-green-600' },
-            { label: 'Total',     value: visible.length,     color: 'text-indigo-600' },
+            { label: 'Active',    value: count('active'),    color: 'text-blue-400' },
+            { label: 'Delivered', value: count('delivered'), color: 'text-green-400' },
+            { label: 'Total',     value: visible.length,     color: 'text-foreground' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4 text-center shadow-sm">
+            <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
               <div className={`text-2xl font-bold tabular-nums ${color}`}>{value}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
             </div>
           ))}
         </div>
@@ -202,7 +195,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
         {/* Muted */}
         {blacklist.size > 0 && (
           <div className="mb-4">
-            <button onClick={() => setShowMuted(s => !s)} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+            <button onClick={() => setShowMuted(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
               <EyeOff className="w-3.5 h-3.5" />
               {blacklist.size} hidden · {showMuted ? 'hide' : 'manage'}
             </button>
@@ -210,7 +203,7 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
               <div className="flex flex-wrap gap-2 mt-2">
                 {[...blacklist].map(m => (
                   <button key={m} onClick={() => unmute(m)}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-500 hover:border-gray-400 transition-all">
+                    className="flex items-center gap-1.5 px-3 py-1 bg-secondary border border-border rounded-full text-xs text-muted-foreground hover:border-muted-foreground transition-all">
                     {m} <X className="w-3 h-3" />
                   </button>
                 ))}
@@ -221,13 +214,13 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
 
         {/* Search */}
         <div className="relative mb-4">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <input
             type="search" value={query} onChange={e => setQuery(e.target.value)}
             placeholder="Search merchant, carrier, tracking…"
-            className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-400 shadow-sm transition-colors"
+            className="w-full pl-10 pr-10 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-ring transition-colors"
           />
-          {query && <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>}
+          {query && <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>}
         </div>
 
         {/* Filters */}
@@ -236,12 +229,12 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
             <button key={f} onClick={() => setFilter(f)}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                 filter === f
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-card text-muted-foreground border-border hover:border-muted-foreground'
               }`}
             >
               {FILTER_LABELS[f]}
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filter === f ? 'bg-white/20' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filter === f ? 'bg-black/20' : 'bg-secondary text-muted-foreground'}`}>
                 {count(f)}
               </span>
             </button>
@@ -251,28 +244,26 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
         {/* Grid */}
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-12 h-12 bg-white border border-gray-200 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-              <Package2 className="w-6 h-6 text-gray-300" />
+            <div className="w-12 h-12 bg-card border border-border rounded-2xl flex items-center justify-center mb-4">
+              <Package2 className="w-6 h-6 text-muted-foreground" />
             </div>
-            <p className="text-gray-500 font-semibold text-sm">{packages.length === 0 && !isDemo ? 'No packages yet' : 'No results'}</p>
-            <p className="text-gray-400 text-xs mt-1">{packages.length === 0 && !isDemo ? 'Click Sync to fetch your delivery emails' : 'Try a different search or filter'}</p>
+            <p className="text-foreground font-semibold text-sm">{packages.length === 0 && !isDemo ? 'No packages yet' : 'No results'}</p>
+            <p className="text-muted-foreground text-xs mt-1">{packages.length === 0 && !isDemo ? 'Click Sync to fetch your delivery emails' : 'Try a different search or filter'}</p>
             {packages.length === 0 && !isDemo && (
-              <button onClick={onSync} disabled={syncing} className="mt-5 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50">
+              <Button onClick={onSync} disabled={syncing} className="mt-5" size="lg">
                 {syncing ? 'Syncing…' : 'Sync now'}
-              </button>
+              </Button>
             )}
           </div>
         ) : (() => {
-          // Split: active (stages 1-4) = hero cards; rest (0, 5, 6) = compact rows
           const active = filtered.filter(p => p.stage >= 1 && p.stage <= 4);
           const rest   = filtered.filter(p => p.stage < 1 || p.stage > 4)
             .sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
           return (
             <div className="space-y-8">
-              {/* Hero cards — active shipments */}
               {active.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 pl-1">
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 pl-1">
                     Active · {active.length}
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger">
@@ -281,13 +272,12 @@ export default function Dashboard({ user, packages, syncing, syncError, onSync, 
                 </section>
               )}
 
-              {/* Compact list — delivered, confirmed, failed */}
               {rest.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 pl-1">
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 pl-1">
                     {active.length > 0 ? 'Past orders' : 'Orders'} · {rest.length}
                   </h2>
-                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm divide-y divide-gray-100">
+                  <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} />)}
                   </div>
                 </section>

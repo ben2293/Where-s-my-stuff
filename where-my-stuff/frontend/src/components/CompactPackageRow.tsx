@@ -8,9 +8,9 @@ interface Props {
 }
 
 const STAGE_BADGE: Record<number, { label: string; color: string; bg: string }> = {
-  0: { label: 'Confirmed',  color: '#9CA3AF', bg: '#F3F4F6' },
-  5: { label: 'Delivered',  color: '#16A34A', bg: '#F0FDF4' },
-  6: { label: 'Failed',     color: '#DC2626', bg: '#FEF2F2' },
+  0: { label: 'Confirmed', color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' },
+  5: { label: 'Delivered', color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
+  6: { label: 'Failed',    color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
 };
 
 const MERCHANT_EMOJI: Record<string, string> = {
@@ -43,7 +43,6 @@ const STRIP_RE = [
 function cleanText(raw: string): string {
   let s = raw;
   for (const r of STRIP_RE) s = s.replace(r, '');
-  // Strip leading punctuation/whitespace left over after regex removes prefix
   return s.replace(/\s{2,}/g, ' ').replace(/^[:\-–|,;\s"']+|["'!]+$/g, '').trim();
 }
 
@@ -67,15 +66,6 @@ function getTitle(pkg: Package): string {
   return `Order from ${pkg.merchant}`;
 }
 
-function extractPrice(snippet: string): string | null {
-  const m = snippet.match(/(?:₹|Rs\.?|INR)\s*([\d,]+(?:\.\d{1,2})?)/i)
-    ?? snippet.match(/(?:total|paid|amount|price)[:\s]+(?:₹|Rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-  if (!m) return null;
-  const n = parseInt(m[1].replace(/,/g, ''));
-  if (isNaN(n) || n < 1 || n > 500000) return null;
-  return `₹${n.toLocaleString('en-IN')}`;
-}
-
 export default function CompactPackageRow({ pkg, onMute }: Props) {
   const [open, setOpen]     = useState(false);
   const [copied, setCopied] = useState(false);
@@ -84,10 +74,7 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
   const badge = STAGE_BADGE[stage];
   const emoji = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const title = getTitle(pkg);
-  // Prefer DB-extracted price, fall back to snippet parse
-  const price = pkg.price
-    ? `₹${pkg.price.toLocaleString('en-IN')}`
-    : (pkg.snippet ? extractPrice(pkg.snippet) : null);
+  const price = pkg.price ? `₹${pkg.price.toLocaleString('en-IN')}` : null;
   const header = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
 
   const copy = async () => {
@@ -98,16 +85,13 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
 
   return (
     <div className="group">
-      {/* Main row */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left"
         aria-expanded={open}
       >
         <span className="text-base flex-shrink-0 w-6 text-center" aria-hidden>{emoji}</span>
-
-        {/* Title */}
-        <span className="flex-1 min-w-0 text-sm text-gray-700 font-medium truncate">{title}</span>
+        <span className="flex-1 min-w-0 text-sm text-foreground font-medium truncate">{title}</span>
 
         {badge && (
           <span className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -116,58 +100,55 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
           </span>
         )}
 
-        <span className="flex-shrink-0 text-xs text-gray-400 hidden sm:block w-14 text-right">
+        <span className="flex-shrink-0 text-xs text-muted-foreground hidden sm:block w-14 text-right">
           {formatDate(pkg.received_date)}
         </span>
 
         {open
-          ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+          ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+          : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
         }
       </button>
 
-      {/* Expanded details */}
       {open && (
-        <div className="px-4 pb-4 pt-3 bg-gray-50 border-t border-gray-100 text-xs space-y-2.5 animate-fade-up">
-          {/* Brand · Carrier */}
-          <div className="flex items-center gap-2 text-gray-700 font-semibold">
-            <Truck className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+        <div className="px-4 pb-4 pt-3 bg-secondary/30 border-t border-border text-xs space-y-2.5 animate-fade-up">
+          <div className="flex items-center gap-2 text-foreground font-semibold">
+            <Truck className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
             <span>{header}</span>
           </div>
 
           {price && (
             <div className="flex items-center gap-2">
-              <span className="text-gray-400 w-20">Amount</span>
-              <span className="font-semibold text-gray-700">{price}</span>
+              <span className="text-muted-foreground w-20">Amount</span>
+              <span className="font-semibold text-foreground">{price}</span>
             </div>
           )}
 
           {pkg.order_number && (
             <div className="flex items-center gap-2">
-              <Hash className="w-3 h-3 text-gray-300 flex-shrink-0" />
-              <span className="text-gray-400 w-20">Order</span>
-              <span className="font-mono text-gray-600">{pkg.order_number}</span>
+              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+              <span className="text-muted-foreground w-20">Order</span>
+              <span className="font-mono text-foreground">{pkg.order_number}</span>
             </div>
           )}
 
           {pkg.tracking_number && (
             <div className="flex items-center gap-2">
-              <Hash className="w-3 h-3 text-gray-300 flex-shrink-0" />
-              <span className="text-gray-400 w-20">Tracking</span>
-              <span className="font-mono text-gray-600 truncate max-w-[150px]">{pkg.tracking_number}</span>
-              <button onClick={copy} className="ml-1 text-gray-400 hover:text-gray-700" aria-label="Copy">
+              <Hash className="w-3 h-3 text-muted-foreground/40 flex-shrink-0" />
+              <span className="text-muted-foreground w-20">Tracking</span>
+              <span className="font-mono text-foreground truncate max-w-[150px]">{pkg.tracking_number}</span>
+              <button onClick={copy} className="ml-1 text-muted-foreground hover:text-foreground" aria-label="Copy">
                 {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
               </button>
             </div>
           )}
 
-          {/* Snippet summary — first sentence only */}
           {pkg.snippet && (() => {
             const s = pkg.snippet.replace(/\s+/g, ' ').trim();
             const sentence = s.split(/[.!]\s/)[0];
             if (sentence && sentence.length > 15 && sentence.length < 120) {
               return (
-                <p className="text-gray-400 italic leading-relaxed pt-0.5">
+                <p className="text-muted-foreground italic leading-relaxed pt-0.5">
                   "{sentence.trim()}"
                 </p>
               );
@@ -177,7 +158,7 @@ export default function CompactPackageRow({ pkg, onMute }: Props) {
 
           <button
             onClick={() => onMute(pkg.merchant)}
-            className="text-[11px] text-gray-300 hover:text-red-400 transition-colors pt-0.5"
+            className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors pt-0.5"
           >
             Hide all {pkg.merchant} orders
           </button>

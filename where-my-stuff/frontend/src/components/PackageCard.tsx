@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, X, Hash, ExternalLink, RefreshCw, AlertCircle, ThumbsDown } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -208,8 +209,8 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
       style={{ transition: muting ? 'opacity 280ms, transform 280ms' : undefined }}
       aria-label={`${pkg.merchant} — ${hero}`}
     >
-      {/* Hero area — neutral bg, small centred thumbnail */}
-      <div className="relative overflow-hidden bg-secondary/60 dark:bg-secondary flex items-center justify-center" style={{ height: 160 }}>
+      {/* Hero area — white bg, small centred thumbnail */}
+      <div className="relative overflow-hidden bg-white dark:bg-secondary flex items-center justify-center" style={{ height: 160 }}>
         {hasImage ? (
           <img
             src={pkg.image_url!}
@@ -243,6 +244,8 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
           <X className="w-3 h-3" />
         </button>
       </div>
+
+      <Separator />
 
       {/* Card header */}
       <CardHeader className="pb-2">

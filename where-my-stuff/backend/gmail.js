@@ -119,6 +119,7 @@ const DELIVERY_QUERY = [
   'from:@ecomexpress.in',
   'from:@shiprocket.in',
   // Subject keywords — catches D2C brands (Marchtee etc.) not in sender list
+  // Shipping / transit states
   'subject:shipped',
   'subject:dispatched',
   'subject:delivered',
@@ -126,17 +127,25 @@ const DELIVERY_QUERY = [
   'subject:shipment',
   'subject:"out for delivery"',
   'subject:"in transit"',
-  'subject:"order confirmed"',
-  'subject:"order placed"',
-  'subject:"order received"',
-  'subject:"order update"',
-  'subject:"your order"',
   'subject:"on its way"',
   'subject:"arriving today"',
+  'subject:"arriving tomorrow"',
+  // Order confirmation phrases — all common permutations
+  'subject:"order confirmed"',
+  'subject:"order confirmation"',   // Shopify default, very common
+  'subject:"order placed"',
+  'subject:"order received"',
+  'subject:"order summary"',
+  'subject:"order details"',
+  'subject:"order update"',
+  'subject:"confirmed order"',
+  'subject:"your order"',           // matches "Your order from X", "Your order #123"
+  'subject:ordered',                // matches "You ordered:", "Thanks for ordering"
+  // Misc
   'subject:tracking',
   'subject:invoice',
   'subject:"your package"',
-  'subject:ordered',
+  'subject:"your shipment"',
 ].join(' OR ');
 
 function createOAuthClient() {

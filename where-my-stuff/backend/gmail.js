@@ -96,6 +96,7 @@ const DELIVERY_QUERY = [
   'subject:tracking',
   'subject:invoice',
   'subject:"your package"',
+  'subject:ordered',
 ].join(' OR ');
 
 function createOAuthClient() {

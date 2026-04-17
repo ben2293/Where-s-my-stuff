@@ -130,6 +130,14 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       );
     }
 
+    // Remove garbage entries: stage-0 with no tracking and no valid order number
+    run(
+      `DELETE FROM packages WHERE user_email = ? AND stage = 0
+       AND (tracking_number IS NULL OR tracking_number = '')
+       AND (order_number IS NULL OR order_number = '' OR LENGTH(order_number) < 6)`,
+      [userEmail]
+    );
+
     run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
 
     const all_pkgs = all(

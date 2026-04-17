@@ -370,6 +370,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   const parseInputs = rawEmails.map(e => ({
     from: e.from, subject: e.subject, snippet: e.snippet,
     body: e.body, orderNumberHint: e.orderNumberHint,
+    receivedMs: e.dateStr ? new Date(e.dateStr).getTime() : Date.now(),
   }));
   const parsed = await parseEmailsBatch(parseInputs);
 
@@ -439,7 +440,7 @@ async function resyncPackage(userTokens, pkg) {
       if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) continue;
       const snippet = decodeEntities(msg.data.snippet || '');
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
-      const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
+      const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() });
       const fromEmail = extractEmail(from);
       const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
       if (stageFloor > parsed.stage) {

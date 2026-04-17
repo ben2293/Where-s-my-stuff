@@ -11,6 +11,53 @@ function getClient() {
   return _client;
 }
 
+// ─── Date helpers ──────────────────────────────────────────────────────────────
+
+function toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Resolve a raw date string to YYYY-MM-DD using receivedMs as the anchor for relative expressions.
+// Returns null if unparseable.
+function resolveToISO(raw, receivedMs) {
+  if (!raw) return null;
+  const s = raw.trim();
+  const lower = s.toLowerCase();
+
+  // Already absolute ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const ref = new Date(receivedMs || Date.now());
+  ref.setHours(0, 0, 0, 0);
+
+  if (lower === 'today')    return toISO(ref);
+  if (lower === 'tomorrow') { const d = new Date(ref); d.setDate(d.getDate() + 1); return toISO(d); }
+
+  const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const firstWord = lower.split(/[\s,]/)[0];
+  const dayIdx = DAY_NAMES.indexOf(firstWord);
+  if (dayIdx >= 0) {
+    // diff=0 means "same day of week as received" — treat as next occurrence (i.e. >=1)
+    const diff = ((dayIdx - ref.getDay() + 7) % 7) || 7;
+    const d = new Date(ref);
+    d.setDate(d.getDate() + diff);
+    // If string also contains a month+day, prefer that for accuracy
+    const full = `${s} ${ref.getFullYear()}`;
+    const parsed = new Date(full);
+    if (!isNaN(parsed.getTime()) && Math.abs(parsed.getTime() - d.getTime()) < 8 * 86400_000) return toISO(parsed);
+    return toISO(d);
+  }
+
+  // "18 Apr", "Apr 18", "Apr 18, 2025", etc.
+  const clean = s.replace(/(\d+)(?:st|nd|rd|th)/gi, '$1');
+  const year  = ref.getFullYear();
+  const withYear = /\d{4}/.test(clean) ? clean : `${clean} ${year}`;
+  const d = new Date(withYear);
+  if (!isNaN(d.getTime())) return toISO(d);
+
+  return null;
+}
+
 // ─── Stage regex (subject+snippet only — never full body to avoid footer noise) ──
 
 const STAGE_PATTERNS = [
@@ -91,50 +138,56 @@ function extractOrderNumber(text, hint) {
   return hint || null;
 }
 
-function extractExpectedDate(text) {
+function extractExpectedDate(text, receivedMs) {
   const m1 = text.match(/(?:delivery|expected|estimated)\s+by[:\s]+([A-Za-z]+(?:day)?,\s*[A-Za-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
-  if (m1) return m1[1].trim();
+  if (m1) return resolveToISO(m1[1].trim(), receivedMs);
   const m2 = text.match(/arriving?\s+(?:by\s+|on\s+)?(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
-  if (m2) return m2[1].trim();
+  if (m2) return resolveToISO(m2[1].trim(), receivedMs);
   const m3 = text.match(/(?:get it|delivers?)\s+by\s+((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s+[A-Za-z]+\s+\d+)?|tomorrow|today)/i);
-  if (m3) return m3[1].trim();
+  if (m3) return resolveToISO(m3[1].trim(), receivedMs);
   return null;
 }
 
 // ─── Fast regex pass ───────────────────────────────────────────────────────
 
-function quickParse({ from, subject, snippet, orderNumberHint }) {
+function quickParse({ from, subject, snippet, orderNumberHint, receivedMs }) {
   const shortText = `${subject} ${snippet}`;
   const stageResult = detectStage(shortText);
   const merchant = detectMerchant(from);
   const trackingNumber = extractTracking(shortText);
   const orderNumber = extractOrderNumber(shortText, orderNumberHint);
-  const expectedDate = extractExpectedDate(shortText);
+  const expectedDate = extractExpectedDate(shortText, receivedMs || Date.now());
   return { stageResult, merchant, trackingNumber, orderNumber, expectedDate };
 }
 
-// An email is "resolved" if we have stage + (merchant + at least one identifier OR stage > 0)
+// An email is "resolved" if we have stage + identifier — BUT stage 2-4 always go through
+// Haiku so we get an accurate absolute expected_date with today's date as context.
 function isResolved({ stageResult, merchant, trackingNumber, orderNumber }) {
-  if (!stageResult) return false;       // stage unknown — needs Haiku
-  if (stageResult.stage > 0) return true; // clear delivery stage
-  if (trackingNumber || orderNumber) return true; // stage=0 but have identifier
+  if (!stageResult) return false;
+  if (stageResult.stage >= 2 && stageResult.stage <= 4) return false; // active — Haiku for accurate date
+  if (stageResult.stage > 0) return true;
+  if (trackingNumber || orderNumber) return true;
   return false;
 }
 
 // ─── Haiku batch (only for ambiguous emails) ──────────────────────────────
 
 const HAIKU_SYSTEM = `You are a delivery email parser. You receive emails numbered [1], [2], etc.
+Each email starts with "Today: YYYY-MM-DD" — use this to resolve relative dates.
 Return ONLY a JSON array, one object per email, same order:
 [{"stage":"order_confirmed"|"processing"|"dispatched"|"in_transit"|"out_for_delivery"|"delivered"|"failed"|"return_initiated"|"returned","merchant":string,"carrier":string|null,"orderNumber":string|null,"trackingNumber":string|null,"expectedDate":string|null}]
 
 Stage: read subject and main body only — ignore nav bars, footers, link text.
 - dispatched: shipped/on its way/arriving soon
 - delivered: actually received by customer
-- Return ONLY the JSON array.`;
+expectedDate: return as YYYY-MM-DD using the provided Today date to resolve "tomorrow", day names, etc. Return null if not found.
+Return ONLY the JSON array.`;
 
 async function haikuBatch(emails) {
+  const todayStr = new Date().toISOString().slice(0, 10);
   const prompt = emails.map((e, i) => [
-    `[${i + 1}] From: ${e.from}`,
+    `[${i + 1}] Today: ${todayStr}`,
+    `From: ${e.from}`,
     `Subject: ${e.subject}`,
     `Preview: ${e.snippet}`,
     e.body ? `Body: ${e.body.slice(0, 600)}` : '',
@@ -209,13 +262,17 @@ async function parseEmailsBatch(emailList) {
       const h = haikuResults[j];
       if (h) {
         const { stage, status } = STAGE_MAP[h.stage] ?? STAGE_MAP.order_confirmed;
+        // Haiku returns expectedDate as YYYY-MM-DD; if not, try to resolve via regex
+        const expectedDate = h.expectedDate || extractExpectedDate(
+          `${email.subject} ${email.snippet}`, email.receivedMs
+        );
         results[idx] = {
           stage, status,
           merchant: h.merchant || quick_merchant(email.from),
           carrier: h.carrier || null,
           trackingNumber: h.trackingNumber || null,
           orderNumber: h.orderNumber || email.orderNumberHint || null,
-          expectedDate: h.expectedDate || null,
+          expectedDate,
         };
       } else {
         // Haiku failed — best-effort fallback

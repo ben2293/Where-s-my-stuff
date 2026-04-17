@@ -3,6 +3,13 @@
 export function parseExpectedDate(expectedDate: string | null | undefined, receivedMs: number): Date | null {
   if (!expectedDate) return null;
   const s = expectedDate.trim();
+
+  // Absolute ISO date stored by parser — parse as local date directly
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
   const lower = s.toLowerCase();
 
   const ref = new Date(receivedMs);

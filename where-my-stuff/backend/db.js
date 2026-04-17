@@ -53,6 +53,8 @@ async function getDb() {
   try { db.run(`ALTER TABLE packages ADD COLUMN from_address TEXT`); } catch {}
   try { db.run(`ALTER TABLE packages ADD COLUMN manually_delivered INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE users ADD COLUMN auth_token TEXT`); } catch {}
+  // Purge stale expected_dates for active packages — they will be re-verified via Haiku on next sync
+  try { db.run(`UPDATE packages SET expected_date = NULL WHERE stage BETWEEN 2 AND 4`); } catch {}
   // User-learned blocks from thumbs-down feedback
   try {
     db.run(`CREATE TABLE IF NOT EXISTS user_blocks (

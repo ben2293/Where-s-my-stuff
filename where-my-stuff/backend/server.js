@@ -152,8 +152,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
           run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
           user.access_token = fat;
         }
-        if (p?.expectedDate) {
-          run('UPDATE packages SET expected_date = ? WHERE id = ?', [p.expectedDate, pkg.id]);
+        if (p) {
+          run('UPDATE packages SET expected_date = ? WHERE id = ?', [p.expectedDate || null, pkg.id]);
         }
       } catch (e) {
         console.warn(`[sync] active date re-verify failed for pkg ${pkg.id}:`, e.message);

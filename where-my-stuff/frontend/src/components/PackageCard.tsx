@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { countdownLabel } from '@/lib/dates';
+import { countdownLabel, parseExpectedDate } from '@/lib/dates';
 import type { Package } from '../types';
 
 interface Props {
@@ -81,10 +81,15 @@ function stageSummary(stage: number, carrier: string | null, subject: string, sn
 
 function formatDate(ts: number): string {
   if (!ts) return '';
-  const diff = Math.floor((Date.now() - ts) / 86400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  return new Date(ts).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+function formatArrivingDate(d: Date): string {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((d.getTime() - today.getTime()) / 86400_000);
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'tomorrow';
+  return `on ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
 }
 
 const ORDER_NUM_BLACKLIST = /^(confirmed|confirmation|placed|received|shipped|dispatched|delivered|processing|accepted|cancelled|canceled|payment|update|status)$/i;
@@ -261,18 +266,29 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
           )}
         </div>
 
-        {/* Date + countdown */}
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
-          <span className="text-xs text-muted-foreground">{formatDate(pkg.received_date)}</span>
-          {countdown && !isOverdue && (
-            <>
-              <span className="text-muted-foreground/40 text-xs">·</span>
-              <span className="text-xs font-medium" style={{ color }}>
-                {countdown.text}
-              </span>
-            </>
-          )}
-        </div>
+        {/* Date + arriving */}
+        {(() => {
+          const expectedObj = parseExpectedDate(pkg.expected_date, pkg.received_date);
+          return (
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap text-xs">
+              <span className="text-muted-foreground">Ordered {formatDate(pkg.received_date)}</span>
+              {expectedObj && stage < 5 && !isOverdue && (
+                <>
+                  <span className="text-muted-foreground/40">|</span>
+                  <span className="font-medium" style={{ color }}>
+                    Arriving {formatArrivingDate(expectedObj)}
+                  </span>
+                </>
+              )}
+              {isOverdue && (
+                <>
+                  <span className="text-muted-foreground/40">|</span>
+                  <span className="font-medium text-red-500">{countdown!.text}</span>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Progress bar */}
         <div className="mt-3">

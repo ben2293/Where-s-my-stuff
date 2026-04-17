@@ -138,6 +138,28 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       [userEmail]
     );
 
+    // Re-verify expected_date for all active packages via Haiku (stage 2-4).
+    // This ensures dates are always accurate, even for records synced before the Haiku fix.
+    const activePkgs = all(
+      `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 2 AND 4`,
+      [userEmail]
+    );
+    for (const pkg of activePkgs) {
+      try {
+        const tokens = { access_token: user.access_token, refresh_token: user.refresh_token };
+        const { package: p, freshAccessToken: fat } = await resyncPackage(tokens, pkg);
+        if (fat && fat !== user.access_token) {
+          run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
+          user.access_token = fat;
+        }
+        if (p?.expectedDate) {
+          run('UPDATE packages SET expected_date = ? WHERE id = ?', [p.expectedDate, pkg.id]);
+        }
+      } catch (e) {
+        console.warn(`[sync] active date re-verify failed for pkg ${pkg.id}:`, e.message);
+      }
+    }
+
     run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
 
     const all_pkgs = all(

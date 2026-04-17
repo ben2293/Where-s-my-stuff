@@ -134,12 +134,14 @@ function applyStageFilter(pkgs: Package[], filter: StageFilter): Package[] {
   if (filter === 'today')     return pkgs.filter(p => {
     if (p.stage >= 5) return false;
     const d = parseExpectedDate(p.expected_date, p.received_date);
-    return d !== null && d.getTime() >= tMs && d.getTime() < tMs + 86400_000;
+    if (d !== null) return d.getTime() >= tMs && d.getTime() < tMs + 86400_000;
+    return /arriving\s+today|out\s+for\s+delivery/i.test(`${p.subject} ${p.snippet ?? ''}`);
   });
   if (filter === 'tomorrow')  return pkgs.filter(p => {
     if (p.stage >= 5) return false;
     const d = parseExpectedDate(p.expected_date, p.received_date);
-    return d !== null && d.getTime() >= tMs + 86400_000 && d.getTime() < tMs + 2 * 86400_000;
+    if (d !== null) return d.getTime() >= tMs + 86400_000 && d.getTime() < tMs + 2 * 86400_000;
+    return /arriving\s+tomorrow/i.test(`${p.subject} ${p.snippet ?? ''}`);
   });
   return pkgs;
 }
@@ -289,11 +291,9 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
               }`}
             >
               {STAGE_LABELS[f]}
-              {f !== 'today' && f !== 'tomorrow' && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${stageFilter === f ? 'bg-black/20' : 'bg-secondary text-muted-foreground'}`}>
-                  {count(f)}
-                </span>
-              )}
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${stageFilter === f ? 'bg-black/20' : 'bg-secondary text-muted-foreground'}`}>
+                {count(f)}
+              </span>
             </button>
           ))}
         </div>

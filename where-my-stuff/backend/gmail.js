@@ -28,9 +28,7 @@ function isKnownDeliverySender(email) {
 }
 
 const DELIVERY_QUERY = [
-  // Gmail Updates tab — delivery emails live here regardless of sender
-  'category:updates',
-  // Amazon — use bare domain (no @) to match all subdomains e.g. email.amazon.in, m.amazon.in
+  // Amazon — bare domain (no @) matches all subdomains: email.amazon.in, m.amazon.in, etc.
   'from:amazon.in',
   'from:amazon.com',
   // Flipkart / Ekart
@@ -322,7 +320,6 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
             from_address: extractEmail(from),
             image_url: imageUrl,
             price: price,
-            _fromEmail: extractEmail(from),
             ...parsed,
             subject: decodeEntities(subject),
             snippet: snippet.slice(0, 500),
@@ -333,14 +330,12 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
         }
       })
     );
-    // Keep emails with real delivery signals.
-    // For known merchant senders, stage 0 + no order/tracking is fine (order confirmation
-    // emails often have the number deep in the body; we don't want to drop them).
+    // Keep only emails with real delivery signals.
+    // orderNumber must be ≥6 chars to avoid short receipt fragments like "2024".
     const isDelivery = r =>
       r.trackingNumber ||
-      r.orderNumber ||
-      r.stage > 0 ||
-      (r._fromEmail && isKnownDeliverySender(r._fromEmail));
+      (r.orderNumber && r.orderNumber.length >= 6) ||
+      r.stage > 0;
     results.push(...batchResults.filter(r => r && isDelivery(r)));
   }
 

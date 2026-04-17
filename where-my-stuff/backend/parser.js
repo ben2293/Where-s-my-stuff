@@ -338,7 +338,7 @@ function extractOrderNumber(subject, snippet, body) {
 
   // 3. "#XXXXX" prefix — strip tracking context first to avoid grabbing tracking numbers
   const noTracking = full.replace(/(?:tracking|awb|waybill|consignment)\b.{0,80}/gi, '');
-  const h = firstValid(noTracking, /#([A-Z0-9]{4,20})\b/gi);
+  const h = firstValid(noTracking, /#([A-Z0-9]{6,20})\b/gi);
   if (h) return h;
 
   // 4. Body-only fallback — broader sweep

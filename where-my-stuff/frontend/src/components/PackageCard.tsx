@@ -306,56 +306,51 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
       </div>
 
-      <CardFooter className="pt-0 flex items-center justify-between gap-2">
-        {/* Left: primary actions */}
-        <div className="flex items-center gap-2">
-          {trackUrl && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={trackUrl} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="w-3 h-3" />
-                Track
-              </a>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:border-green-300 hover:text-green-600 dark:hover:bg-green-950 dark:hover:border-green-800 dark:hover:text-green-400"
-            onClick={() => {
-              setDelivering(true);
-              setTimeout(() => setGlow(true), 720);
-              setTimeout(() => setMuting(true), 1050);
-              setTimeout(() => onMarkDelivered(pkg.id), 1330);
-            }}
-          >
-            <Check className="w-3 h-3" />
-            Got it
+      <div className="px-6 pb-5 flex items-center gap-2">
+        {trackUrl && (
+          <Button variant="outline" size="sm" asChild>
+            <a href={trackUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3 h-3" />
+              Track
+            </a>
           </Button>
-        </div>
-        {/* Right: secondary actions */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-8 h-8 p-0 text-muted-foreground/50 hover:text-muted-foreground"
-            onClick={handleResync}
-            disabled={resyncing}
-            aria-label="Re-sync this order"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', resyncing && 'animate-spin')} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-8 h-8 p-0 text-muted-foreground/50 hover:text-red-500"
-            onClick={handleReport}
-            disabled={reporting}
-            aria-label="Not a delivery — report this"
-          >
-            <ThumbsDown className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-      </CardFooter>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hover:bg-green-50 hover:border-green-300 hover:text-green-600 dark:hover:bg-green-950 dark:hover:border-green-800 dark:hover:text-green-400"
+          onClick={() => {
+            setDelivering(true);
+            setTimeout(() => setGlow(true), 720);
+            setTimeout(() => setMuting(true), 1050);
+            setTimeout(() => onMarkDelivered(pkg.id), 1330);
+          }}
+        >
+          <Check className="w-3 h-3" />
+          Got it
+        </Button>
+        <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-8 h-8 p-0 text-muted-foreground/40 hover:text-muted-foreground"
+          onClick={handleResync}
+          disabled={resyncing}
+          aria-label="Re-sync this order"
+        >
+          <RefreshCw className={cn('w-3.5 h-3.5', resyncing && 'animate-spin')} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-8 h-8 p-0 text-muted-foreground/40 hover:text-red-500"
+          onClick={handleReport}
+          disabled={reporting}
+          aria-label="Not a delivery"
+        >
+          <ThumbsDown className="w-3.5 h-3.5" />
+        </Button>
+      </div>
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Package2, Search, X, EyeOff, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { parseExpectedDate } from '@/lib/dates';
@@ -171,6 +172,14 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
     localStorage.setItem('wms_blacklist', JSON.stringify([...n])); return n;
   });
 
+  const handleMute = (m: string) => {
+    mute(m);
+    toast(`Hidden: ${m}`, {
+      duration: 5000,
+      action: { label: 'Undo', onClick: () => unmute(m) },
+    });
+  };
+
   const isDemo = packages.length === 0 && !user.last_sync;
   const source = useMemo(() => isDemo ? DEMO : deduplicate(packages), [packages, isDemo]);
 
@@ -329,7 +338,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 stagger">
                     {active.map(pkg => (
-                      <PackageCard key={pkg.id} pkg={pkg} onMute={mute} onMarkDelivered={onMarkDelivered} onResync={onResync} onReport={onReport} />
+                      <PackageCard key={pkg.id} pkg={pkg} onMute={handleMute} onMarkDelivered={onMarkDelivered} onResync={onResync} onReport={onReport} />
                     ))}
                   </div>
                 </section>

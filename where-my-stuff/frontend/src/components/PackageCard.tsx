@@ -201,56 +201,61 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
   return (
     <Card
       className={cn(
-        'pkg-card relative overflow-hidden transition-all duration-200 bg-white dark:bg-card',
+        'pkg-card relative overflow-hidden pt-0 transition-all duration-200 bg-white dark:bg-card',
         isOverdue && 'ring-1 ring-red-400 dark:ring-red-800',
         muting && 'opacity-0 scale-95'
       )}
       style={{ transition: muting ? 'opacity 280ms, transform 280ms' : undefined }}
       aria-label={`${pkg.merchant} — ${hero}`}
     >
+      {/* Hero area — neutral bg, small centred thumbnail */}
+      <div className="relative overflow-hidden bg-secondary/60 dark:bg-secondary flex items-center justify-center" style={{ height: 160 }}>
+        {hasImage ? (
+          <img
+            src={pkg.image_url!}
+            alt=""
+            className="w-16 h-16 object-contain rounded-xl"
+            onError={() => setImgOk(false)}
+          />
+        ) : (
+          <span className="text-5xl select-none">{emoji}</span>
+        )}
+
+        {/* Stage badge top-right */}
+        <div className="absolute top-3 right-3">
+          {isOverdue ? (
+            <Badge className="text-[11px] font-semibold border-0 bg-red-100 text-red-500 dark:bg-red-950/80 dark:text-red-400 gap-1">
+              <AlertCircle className="w-3 h-3" />{countdown!.text}
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[11px] font-semibold border-0" style={{ background: `${color}20`, color }}>
+              {hero}
+            </Badge>
+          )}
+        </div>
+
+        {/* Dismiss top-left */}
+        <button
+          onClick={() => { setMuting(true); setTimeout(() => onMute(pkg.merchant), 280); }}
+          className="absolute top-3 left-3 w-6 h-6 flex items-center justify-center rounded-full bg-black/10 dark:bg-black/40 text-foreground/60 hover:text-foreground hover:bg-black/20 dark:hover:bg-black/60 transition-colors"
+          aria-label={`Hide all ${pkg.merchant} packages`}
+        >
+          <X className="w-3 h-3" />
+        </button>
+      </div>
+
       {/* Card header */}
       <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-3">
-          {/* Small thumbnail or emoji */}
-          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-secondary flex items-center justify-center text-xl">
-            {hasImage
-              ? <img src={pkg.image_url!} alt="" className="w-full h-full object-cover" onError={() => setImgOk(false)} />
-              : <span>{emoji}</span>
-            }
-          </div>
-
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {pkg.price != null && (
-                  <span className="text-sm font-bold text-foreground whitespace-nowrap">
-                    ₹{pkg.price.toLocaleString('en-IN')}
-                  </span>
-                )}
-                {/* Stage badge */}
-                {isOverdue ? (
-                  <Badge className="text-[11px] font-semibold border-0 bg-red-100 text-red-500 dark:bg-red-950/80 dark:text-red-400 gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {countdown!.text}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-[11px] font-semibold border-0" style={{ background: `${color}18`, color }}>
-                    {hero}
-                  </Badge>
-                )}
-                {/* Dismiss */}
-                <button
-                  onClick={() => { setMuting(true); setTimeout(() => onMute(pkg.merchant), 280); }}
-                  className="w-5 h-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                  aria-label={`Hide all ${pkg.merchant} packages`}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
+            <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
             {title && !title.startsWith('Order #') && <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>}
           </div>
+          {pkg.price != null && (
+            <span className="text-sm font-bold text-foreground whitespace-nowrap flex-shrink-0">
+              ₹{pkg.price.toLocaleString('en-IN')}
+            </span>
+          )}
         </div>
 
         {/* Date + countdown */}

@@ -159,7 +159,9 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
     if (p) {
       run(
         `UPDATE packages SET
-           merchant=?, carrier=?, status=?, stage=?,
+           merchant=?, carrier=?,
+           stage=CASE WHEN stage>=5 THEN stage ELSE ? END,
+           status=CASE WHEN stage>=5 THEN status ELSE ? END,
            tracking_number=COALESCE(?, tracking_number),
            order_number=COALESCE(?, order_number),
            expected_date=COALESCE(?, expected_date),
@@ -167,7 +169,7 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
            price=COALESCE(?, price),
            updated_at=strftime('%s','now')
          WHERE id=?`,
-        [p.merchant, p.carrier, p.status, p.stage,
+        [p.merchant, p.carrier, p.stage, p.status,
          p.trackingNumber, p.orderNumber, p.expectedDate,
          p.image_url, p.price, id]
       );
@@ -263,11 +265,21 @@ app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   const { id } = req.params;
   const { stage } = req.body;
   if (typeof stage !== 'number' || stage < 0 || stage > 8) return res.status(400).json({ error: 'Invalid stage' });
-  const pkg = get('SELECT id FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
+  const pkg = get('SELECT id, order_number, tracking_number FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
   if (!pkg) return res.status(404).json({ error: 'Not found' });
   const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
+  const newStatus = STATUS_MAP[stage] ?? 'Order Confirmed';
   run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
-    [stage, STATUS_MAP[stage] ?? 'Order Confirmed', id]);
+    [stage, newStatus, id]);
+  // Also update all related rows so they don't resurface as active after reload
+  if (pkg.order_number) {
+    run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND order_number = ? AND id != ?',
+      [stage, newStatus, req.userEmail, pkg.order_number, id]);
+  }
+  if (pkg.tracking_number) {
+    run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND tracking_number = ? AND id != ?',
+      [stage, newStatus, req.userEmail, pkg.tracking_number, id]);
+  }
   res.json({ success: true });
 });
 

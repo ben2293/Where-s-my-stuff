@@ -3,6 +3,30 @@ const { parseEmail } = require('./parser');
 
 // Smart query — covers all major Indian merchants + carriers + delivery keywords
 // This runs AFTER date filtering so the result set is small
+// Domains that send transactional delivery emails — exempt from List-Unsubscribe filter
+const KNOWN_DELIVERY_DOMAINS = new Set([
+  'amazon.in', 'amazon.com',
+  'flipkart.com', 'ekartlogistics.com',
+  'myntra.com', 'nykaa.com', 'nykaafashion.com',
+  'meesho.com', 'ajio.com', 'zara.com', 'hm.com', 'mango.com',
+  'puma.com', 'nike.com', 'adidas.com', 'lenskart.com', 'decathlon.in',
+  'croma.com', 'reliancedigital.in', 'boat-lifestyle.com', 'gonoise.com',
+  'swiggy.in', 'swiggy.com', 'blinkit.com', 'grofers.com', 'zepto.team',
+  'bigbasket.com', 'netmeds.com', 'pharmeasy.in', '1mg.com',
+  'snapdeal.com', 'tatacliq.com', 'mamaearth.in',
+  'delhivery.com', 'bluedart.com', 'dtdc.in', 'dtdc.com', 'xpressbees.com',
+  'shadowfax.in', 'ecomexpress.in', 'shiprocket.in',
+]);
+
+function isKnownDeliverySender(email) {
+  const domain = (email.split('@')[1] ?? '').toLowerCase();
+  if (KNOWN_DELIVERY_DOMAINS.has(domain)) return true;
+  for (const d of KNOWN_DELIVERY_DOMAINS) {
+    if (domain.endsWith('.' + d)) return true;
+  }
+  return false;
+}
+
 const DELIVERY_QUERY = [
   // Amazon
   'from:shipped@amazon.in',
@@ -210,11 +234,17 @@ function extractBodyAndImage(payload) {
     if (part.parts) part.parts.forEach(walk);
   }
   walk(payload);
-  const text = decodeEntities(texts.join(' ')).slice(0, 4000);
+  const fullText = decodeEntities(texts.join(' '));
+  const text = fullText.slice(0, 10000);
+  // Extract order number from full text before truncation — order numbers can appear
+  // deep in Amazon/merchant emails beyond the truncation window
+  const amazonOrderMatch = fullText.match(/\b(\d{3}-\d{7}-\d{7})\b/);
+  const orderNumberHint = amazonOrderMatch ? amazonOrderMatch[1] : null;
   return {
     text,
     imageUrl: extractProductImage(rawHtml),
     price: extractPrice(text),
+    orderNumberHint,
   };
 }
 
@@ -281,12 +311,13 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
           const subject = h('Subject');
           const dateStr = h('Date');
           // Skip newsletters/promos — they have List-Unsubscribe
-          if (h('List-Unsubscribe')) return null;
+          // But always allow known merchant/carrier domains (they use this header for transactional email too)
+          if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) return null;
           // Skip user-learned blocks
           if (isUserBlocked(from, subject, userBlocks)) return null;
           const snippet = decodeEntities(msg.data.snippet || '');
-          const { text: body, imageUrl, price } = extractBodyAndImage(msg.data.payload);
-          const parsed = parseEmail({ from, subject, snippet, body });
+          const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+          const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
           return {
             gmail_message_id: id,
             thread_id: msg.data.threadId || null,
@@ -351,10 +382,10 @@ async function resyncPackage(userTokens, pkg) {
       const from = h('From');
       const subject = h('Subject');
       const dateStr = h('Date');
-      if (h('List-Unsubscribe')) continue;
+      if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) continue;
       const snippet = decodeEntities(msg.data.snippet || '');
-      const { text: body, imageUrl, price } = extractBodyAndImage(msg.data.payload);
-      const parsed = parseEmail({ from, subject, snippet, body });
+      const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+      const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
       results.push({
         gmail_message_id: id,
         thread_id: msg.data.threadId || null,

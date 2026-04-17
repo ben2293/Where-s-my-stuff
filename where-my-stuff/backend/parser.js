@@ -64,6 +64,7 @@ const STAGE_PATTERNS = {
     patterns: [
       /out[\s-]for[\s-]delivery/i,
       /arriving today/i,
+      /arriving in \d+ hour/i,
       /will (?:be )?delivered today/i,
       /rider (?:has )?picked/i,
       /delivery (?:agent|boy|partner|executive) (?:is )?(?:on the way|heading|out)/i,
@@ -98,6 +99,7 @@ const STAGE_PATTERNS = {
     patterns: [
       /\bshipped\b/i,
       /\bdispatched\b/i,
+      /\barriving\b/i,
       /has been shipped/i,
       /has been dispatched/i,
       /order is on its way/i,
@@ -376,7 +378,7 @@ function extractExpectedDate(snippet, body) {
   return null;
 }
 
-function parseEmail({ from, subject, snippet, body = '' }) {
+function parseEmail({ from, subject, snippet, body = '', orderNumberHint = null }) {
   // Use subject+snippet first; if stage is ambiguous (order_confirmed default), also check body
   const shortText = `${subject} ${snippet}`;
   let { stage, status } = detectStage(shortText);
@@ -394,7 +396,7 @@ function parseEmail({ from, subject, snippet, body = '' }) {
     merchant: detectMerchant(from, subject),
     carrier: detectCarrier(from, subject, snippet, body),
     trackingNumber: extractTracking(subject, snippet, body),
-    orderNumber: extractOrderNumber(subject, snippet, body),
+    orderNumber: extractOrderNumber(subject, snippet, body) ?? orderNumberHint,
     expectedDate: extractExpectedDate(snippet, body),
     stage,
     status,

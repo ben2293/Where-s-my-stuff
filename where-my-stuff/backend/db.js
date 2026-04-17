@@ -51,6 +51,7 @@ async function getDb() {
   try { db.run(`ALTER TABLE packages ADD COLUMN price INTEGER`); } catch {}
   try { db.run(`ALTER TABLE packages ADD COLUMN expected_date TEXT`); } catch {}
   try { db.run(`ALTER TABLE packages ADD COLUMN from_address TEXT`); } catch {}
+  try { db.run(`ALTER TABLE packages ADD COLUMN manually_delivered INTEGER DEFAULT 0`); } catch {}
   try { db.run(`ALTER TABLE users ADD COLUMN auth_token TEXT`); } catch {}
   // User-learned blocks from thumbs-down feedback
   try {

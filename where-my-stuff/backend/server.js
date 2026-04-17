@@ -115,8 +115,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
-           stage=CASE WHEN excluded.stage>=7 THEN MAX(excluded.stage,stage) WHEN stage>=7 THEN stage WHEN stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
-           status=CASE WHEN excluded.stage>=7 THEN CASE WHEN excluded.stage>=stage THEN excluded.status ELSE status END WHEN stage>=5 THEN status ELSE excluded.status END,
+           stage=CASE WHEN excluded.stage>=7 THEN MAX(excluded.stage,stage) WHEN stage>=7 THEN stage WHEN manually_delivered=1 AND stage>=5 THEN stage ELSE MAX(excluded.stage,stage) END,
+           status=CASE WHEN excluded.stage>=7 THEN CASE WHEN excluded.stage>=stage THEN excluded.status ELSE status END WHEN manually_delivered=1 AND stage>=5 THEN status ELSE excluded.status END,
            thread_id=COALESCE(excluded.thread_id, thread_id),
            from_address=COALESCE(excluded.from_address, from_address),
            image_url=COALESCE(excluded.image_url, image_url),
@@ -168,8 +168,8 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
       run(
         `UPDATE packages SET
            merchant=?, carrier=?,
-           stage=CASE WHEN stage>=5 THEN stage ELSE ? END,
-           status=CASE WHEN stage>=5 THEN status ELSE ? END,
+           stage=CASE WHEN manually_delivered=1 AND stage>=5 THEN stage ELSE ? END,
+           status=CASE WHEN manually_delivered=1 AND stage>=5 THEN status ELSE ? END,
            tracking_number=COALESCE(?, tracking_number),
            order_number=COALESCE(?, order_number),
            expected_date=COALESCE(?, expected_date),
@@ -277,16 +277,17 @@ app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   if (!pkg) return res.status(404).json({ error: 'Not found' });
   const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
   const newStatus = STATUS_MAP[stage] ?? 'Order Confirmed';
-  run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
-    [stage, newStatus, id]);
+  const manuallyDelivered = stage >= 5 ? 1 : 0;
+  run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
+    [stage, newStatus, manuallyDelivered, id]);
   // Also update all related rows so they don't resurface as active after reload
   if (pkg.order_number) {
-    run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND order_number = ? AND id != ?',
-      [stage, newStatus, req.userEmail, pkg.order_number, id]);
+    run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND order_number = ? AND id != ?',
+      [stage, newStatus, manuallyDelivered, req.userEmail, pkg.order_number, id]);
   }
   if (pkg.tracking_number) {
-    run('UPDATE packages SET stage = ?, status = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND tracking_number = ? AND id != ?',
-      [stage, newStatus, req.userEmail, pkg.tracking_number, id]);
+    run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND tracking_number = ? AND id != ?',
+      [stage, newStatus, manuallyDelivered, req.userEmail, pkg.tracking_number, id]);
   }
   res.json({ success: true });
 });

@@ -201,7 +201,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
   return (
     <Card
       className={cn(
-        'pkg-card relative overflow-hidden pt-0 transition-all duration-200 bg-white dark:bg-card',
+        'pkg-card relative overflow-hidden pt-0 transition-all duration-200 bg-white dark:bg-card flex flex-col',
         isOverdue && 'ring-1 ring-red-400 dark:ring-red-800',
         muting && 'opacity-0 scale-95'
       )}
@@ -306,7 +306,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
       </div>
 
-      <div className="px-6 pb-5 flex items-center gap-2">
+      <div className="px-6 pb-5 flex items-center gap-2 mt-auto">
         {trackUrl && (
           <Button variant="outline" size="sm" asChild>
             <a href={trackUrl} target="_blank" rel="noopener noreferrer">

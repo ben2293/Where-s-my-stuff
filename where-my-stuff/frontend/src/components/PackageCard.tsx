@@ -320,7 +320,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
       </div>
 
-      <CardFooter className="gap-2 pt-0">
+      <CardFooter className="gap-2 pt-0 flex-wrap">
         {trackUrl && (
           <Button variant="outline" size="sm" asChild>
             <a href={trackUrl} target="_blank" rel="noopener noreferrer">

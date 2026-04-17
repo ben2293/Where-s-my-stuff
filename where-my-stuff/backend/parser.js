@@ -265,9 +265,10 @@ async function parseEmailsBatch(emailList) {
       const h = haikuResults[j];
       if (h) {
         const { stage, status } = STAGE_MAP[h.stage] ?? STAGE_MAP.order_confirmed;
-        // Haiku returns expectedDate as YYYY-MM-DD; if not, try to resolve via regex
+        // Haiku returns expectedDate as YYYY-MM-DD; if not, search subject+snippet+body
         const expectedDate = h.expectedDate || extractExpectedDate(
-          `${email.subject} ${email.snippet}`, email.receivedMs
+          `${email.subject} ${email.snippet} ${(email.body || '').slice(0, 1500)}`,
+          email.receivedMs
         );
         results[idx] = {
           stage, status,

@@ -136,6 +136,11 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     run(
       `UPDATE packages SET stage=5, status='Delivered', manually_delivered=1
        WHERE user_email=? AND stage BETWEEN 1 AND 4 AND (
+         (thread_id IS NOT NULL AND thread_id IN (
+           SELECT thread_id FROM packages
+           WHERE user_email=? AND manually_delivered=1 AND thread_id IS NOT NULL
+         ))
+         OR
          (order_number IS NOT NULL AND order_number != '' AND order_number IN (
            SELECT order_number FROM packages
            WHERE user_email=? AND manually_delivered=1 AND order_number IS NOT NULL AND order_number != ''
@@ -146,7 +151,7 @@ app.post('/api/sync', requireAuth, async (req, res) => {
            WHERE user_email=? AND manually_delivered=1 AND tracking_number IS NOT NULL AND tracking_number != ''
          ))
        )`,
-      [userEmail, userEmail, userEmail]
+      [userEmail, userEmail, userEmail, userEmail]
     );
 
     // Remove garbage entries: stage-0 with no tracking and no valid order number
@@ -315,20 +320,25 @@ app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   const { id } = req.params;
   const { stage } = req.body;
   if (typeof stage !== 'number' || stage < 0 || stage > 8) return res.status(400).json({ error: 'Invalid stage' });
-  const pkg = get('SELECT id, order_number, tracking_number FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
+  const pkg = get('SELECT id, order_number, tracking_number, thread_id FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
   if (!pkg) return res.status(404).json({ error: 'Not found' });
   const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
   const newStatus = STATUS_MAP[stage] ?? 'Order Confirmed';
   const manuallyDelivered = stage >= 5 ? 1 : 0;
-  run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE id = ?',
+  const ts = "strftime('%s','now')";
+  run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE id=?`,
     [stage, newStatus, manuallyDelivered, id]);
-  // Also update all related rows so they don't resurface as active after reload
+  // Update all related rows by order_number, tracking_number, AND thread_id
+  if (pkg.thread_id) {
+    run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE user_email=? AND thread_id=? AND id!=?`,
+      [stage, newStatus, manuallyDelivered, req.userEmail, pkg.thread_id, id]);
+  }
   if (pkg.order_number) {
-    run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND order_number = ? AND id != ?',
+    run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE user_email=? AND order_number=? AND id!=?`,
       [stage, newStatus, manuallyDelivered, req.userEmail, pkg.order_number, id]);
   }
   if (pkg.tracking_number) {
-    run('UPDATE packages SET stage = ?, status = ?, manually_delivered = ?, updated_at = strftime(\'%s\',\'now\') WHERE user_email = ? AND tracking_number = ? AND id != ?',
+    run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE user_email=? AND tracking_number=? AND id!=?`,
       [stage, newStatus, manuallyDelivered, req.userEmail, pkg.tracking_number, id]);
   }
   res.json({ success: true });

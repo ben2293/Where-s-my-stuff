@@ -461,7 +461,11 @@ async function resyncPackage(userTokens, pkg) {
   }
 
   if (!results.length) return { package: null, freshAccessToken };
-  const best = results.reduce((a, b) => b.stage > a.stage ? b : a);
+  // Pick highest stage; on tie pick the most recently received (latest delivery estimate)
+  const best = results.reduce((a, b) =>
+    b.stage > a.stage ? b :
+    b.stage === a.stage && b.received_date > a.received_date ? b : a
+  );
   return { package: best, freshAccessToken };
 }
 

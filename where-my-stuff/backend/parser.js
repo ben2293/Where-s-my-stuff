@@ -30,8 +30,11 @@ function resolveToISO(raw, receivedMs) {
   const ref = new Date(receivedMs || Date.now());
   ref.setHours(0, 0, 0, 0);
 
-  if (lower === 'today')    return toISO(ref);
-  if (lower === 'tomorrow') { const d = new Date(ref); d.setDate(d.getDate() + 1); return toISO(d); }
+  // "today"/"tomorrow" are always relative to NOW, not the email's received date —
+  // because they express a delivery promise we're reading right now.
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  if (lower === 'today')    return toISO(now);
+  if (lower === 'tomorrow') { const d = new Date(now); d.setDate(d.getDate() + 1); return toISO(d); }
 
   const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
   const firstWord = lower.split(/[\s,]/)[0];

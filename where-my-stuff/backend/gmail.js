@@ -27,6 +27,27 @@ function isKnownDeliverySender(email) {
   return false;
 }
 
+// Amazon sends from specific addresses depending on event.
+// These act as a minimum stage floor — if the parser detects a higher stage, keep it.
+// Contingency: if none of these match, normal parser detection still runs.
+const SENDER_STAGE_FLOOR = {
+  'auto-confirm@amazon.in':         0,  // order confirmed
+  'auto-confirm@amazon.com':        0,
+  'shipment-tracking@amazon.in':    2,  // dispatched / shipped
+  'shipment-tracking@amazon.com':   2,
+  'order-update@amazon.in':         5,  // delivered
+  'order-update@amazon.com':        5,
+};
+
+const SENDER_STATUS_FLOOR = {
+  'auto-confirm@amazon.in':         'Order Confirmed',
+  'auto-confirm@amazon.com':        'Order Confirmed',
+  'shipment-tracking@amazon.in':    'Dispatched',
+  'shipment-tracking@amazon.com':   'Dispatched',
+  'order-update@amazon.in':         'Delivered',
+  'order-update@amazon.com':        'Delivered',
+};
+
 const DELIVERY_QUERY = [
   // Amazon — bare domain (no @) matches all subdomains: email.amazon.in, m.amazon.in, etc.
   'from:amazon.in',
@@ -315,10 +336,17 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
           const snippet = decodeEntities(msg.data.snippet || '');
           const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
           const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
+          const fromEmail = extractEmail(from);
+          // Apply sender-based stage floor — known Amazon addresses tell us the event type
+          const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
+          if (stageFloor > parsed.stage) {
+            parsed.stage = stageFloor;
+            parsed.status = SENDER_STATUS_FLOOR[fromEmail];
+          }
           return {
             gmail_message_id: id,
             thread_id: msg.data.threadId || null,
-            from_address: extractEmail(from),
+            from_address: fromEmail,
             image_url: imageUrl,
             price: price,
             ...parsed,
@@ -382,6 +410,12 @@ async function resyncPackage(userTokens, pkg) {
       const snippet = decodeEntities(msg.data.snippet || '');
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
       const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
+      const fromEmail = extractEmail(from);
+      const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
+      if (stageFloor > parsed.stage) {
+        parsed.stage = stageFloor;
+        parsed.status = SENDER_STATUS_FLOOR[fromEmail];
+      }
       results.push({
         gmail_message_id: id,
         thread_id: msg.data.threadId || null,

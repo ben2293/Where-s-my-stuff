@@ -298,8 +298,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
           ))}
         </div>
 
-        {/* Date range filters + sort */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+        {/* Date range filters */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
           {(['all','7d','30d','90d'] as DateRange[]).map(r => (
             <button key={r} onClick={() => changeDateRange(r)}
               className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border transition-all ${
@@ -311,14 +311,6 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
               {DATE_RANGE_LABELS[r]}
             </button>
           ))}
-          <div className="flex-1" />
-          <button
-            onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs whitespace-nowrap border border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-all flex-shrink-0"
-          >
-            <ArrowUpDown className="w-3 h-3" />
-            {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
-          </button>
         </div>
 
         {/* Package list */}
@@ -358,9 +350,18 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
 
               {rest.length > 0 && (
                 <section>
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3 pl-1">
-                    {active.length > 0 ? 'Past orders' : 'Orders'} · {rest.length}
-                  </h2>
+                  <div className="flex items-center justify-between mb-3 pl-1">
+                    <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                      {active.length > 0 ? 'Past orders' : 'Orders'} · {rest.length}
+                    </h2>
+                    <button
+                      onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-all"
+                    >
+                      <ArrowUpDown className="w-3 h-3" />
+                      {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+                    </button>
+                  </div>
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
                   </div>

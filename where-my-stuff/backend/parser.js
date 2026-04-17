@@ -382,16 +382,14 @@ function parseEmail({ from, subject, snippet, body = '', orderNumberHint = null 
   // Use subject+snippet first; if stage is ambiguous (order_confirmed default), also check body
   const shortText = `${subject} ${snippet}`;
   let { stage, status } = detectStage(shortText);
-  // If short text didn't find a definitive stage, try full body
+  // If short text gave no signal, try full body
   if (stage === 0 && body) {
     const fromBody = detectStage(body);
     if (fromBody.stage > 0) { stage = fromBody.stage; status = fromBody.status; }
   }
-  // If short text gave a lower stage but body says delivered, trust the body
-  if (stage < 5 && body) {
-    const fromBody = detectStage(body);
-    if (fromBody.stage === 5 || fromBody.stage === 6) { stage = fromBody.stage; status = fromBody.status; }
-  }
+  // Do NOT upgrade stage from body when subject/snippet already gave a clear signal.
+  // Amazon shipment emails contain "Delivered" in nav footers — upgrading here causes
+  // a shipped email to show as Delivered.
   return {
     merchant: detectMerchant(from, subject),
     carrier: detectCarrier(from, subject, snippet, body),

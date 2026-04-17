@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, X, Hash, ExternalLink, RefreshCw, AlertCircle, ThumbsDown } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

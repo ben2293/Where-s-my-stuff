@@ -131,6 +131,24 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       );
     }
 
+    // Promote any active package whose order/tracking is already manually delivered
+    // (handles new emails from the same order being inserted as fresh active rows)
+    run(
+      `UPDATE packages SET stage=5, status='Delivered', manually_delivered=1
+       WHERE user_email=? AND stage BETWEEN 1 AND 4 AND (
+         (order_number IS NOT NULL AND order_number != '' AND order_number IN (
+           SELECT order_number FROM packages
+           WHERE user_email=? AND manually_delivered=1 AND order_number IS NOT NULL AND order_number != ''
+         ))
+         OR
+         (tracking_number IS NOT NULL AND tracking_number != '' AND tracking_number IN (
+           SELECT tracking_number FROM packages
+           WHERE user_email=? AND manually_delivered=1 AND tracking_number IS NOT NULL AND tracking_number != ''
+         ))
+       )`,
+      [userEmail, userEmail, userEmail]
+    );
+
     // Remove garbage entries: stage-0 with no tracking and no valid order number
     run(
       `DELETE FROM packages WHERE user_email = ? AND stage = 0

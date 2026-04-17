@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Package2, Search, X, EyeOff, Sparkles } from 'lucide-react';
+import { Package2, Search, X, EyeOff, Sparkles, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { parseExpectedDate } from '@/lib/dates';
 import Header from './Header';
@@ -27,6 +27,7 @@ interface Props {
 
 type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'return' | 'today' | 'tomorrow';
 type DateRange  = 'all' | '7d' | '30d' | '90d';
+type SortOrder  = 'newest' | 'oldest';
 
 const STAGE_LABELS: Record<StageFilter, string> = {
   all: 'All', active: 'Active', delivered: 'Delivered',
@@ -155,6 +156,7 @@ const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7
 export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
+  const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
   const [displayLimit, setDisplayLimit] = useState(8);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
@@ -296,8 +298,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
           ))}
         </div>
 
-        {/* Date range filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        {/* Date range filters + sort */}
+        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
           {(['all','7d','30d','90d'] as DateRange[]).map(r => (
             <button key={r} onClick={() => changeDateRange(r)}
               className={`px-3 py-1 rounded-full text-xs whitespace-nowrap border transition-all ${
@@ -309,6 +311,14 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
               {DATE_RANGE_LABELS[r]}
             </button>
           ))}
+          <div className="flex-1" />
+          <button
+            onClick={() => setSortOrder(s => s === 'newest' ? 'oldest' : 'newest')}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs whitespace-nowrap border border-border text-muted-foreground hover:border-muted-foreground hover:text-foreground transition-all flex-shrink-0"
+          >
+            <ArrowUpDown className="w-3 h-3" />
+            {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+          </button>
         </div>
 
         {/* Package list */}
@@ -328,7 +338,9 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
         ) : (() => {
           const active = filtered.filter(p => p.stage >= 1 && p.stage <= 4);
           const rest   = filtered.filter(p => p.stage < 1 || p.stage > 4)
-            .sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+            .sort((a, b) => sortOrder === 'newest'
+              ? b.received_date - a.received_date
+              : a.received_date - b.received_date);
           return (
             <div className="space-y-8">
               {active.length > 0 && (

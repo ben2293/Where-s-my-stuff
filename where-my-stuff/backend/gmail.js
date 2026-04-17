@@ -28,13 +28,11 @@ function isKnownDeliverySender(email) {
 }
 
 const DELIVERY_QUERY = [
-  // Amazon
-  'from:shipped@amazon.in',
-  'from:order-update@amazon.in',
-  'from:auto-confirm@amazon.in',
-  'from:ship-confirm@amazon.in',
-  'from:@amazon.in',
-  'from:@amazon.com',
+  // Gmail Updates tab — delivery emails live here regardless of sender
+  'category:updates',
+  // Amazon — use bare domain (no @) to match all subdomains e.g. email.amazon.in, m.amazon.in
+  'from:amazon.in',
+  'from:amazon.com',
   // Flipkart / Ekart
   'from:@flipkart.com',
   'from:@ekartlogistics.com',
@@ -324,6 +322,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
             from_address: extractEmail(from),
             image_url: imageUrl,
             price: price,
+            _fromEmail: extractEmail(from),
             ...parsed,
             subject: decodeEntities(subject),
             snippet: snippet.slice(0, 500),
@@ -334,13 +333,14 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
         }
       })
     );
-    // Keep only emails with real delivery signals:
-    // must have a tracking/order number OR a stage above 0 (shipped, delivered etc.)
-    // This drops promo/marketing emails even from known merchants
+    // Keep emails with real delivery signals.
+    // For known merchant senders, stage 0 + no order/tracking is fine (order confirmation
+    // emails often have the number deep in the body; we don't want to drop them).
     const isDelivery = r =>
       r.trackingNumber ||
       r.orderNumber ||
-      r.stage > 0;
+      r.stage > 0 ||
+      (r._fromEmail && isKnownDeliverySender(r._fromEmail));
     results.push(...batchResults.filter(r => r && isDelivery(r)));
   }
 

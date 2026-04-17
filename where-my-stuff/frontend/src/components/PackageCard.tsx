@@ -245,7 +245,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         </button>
       </div>
 
-      <Separator />
+      <Separator className="mx-6 w-auto" />
 
       {/* Card header */}
       <CardHeader className="pb-2">

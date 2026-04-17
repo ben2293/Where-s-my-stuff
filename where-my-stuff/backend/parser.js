@@ -1,6 +1,13 @@
 const Anthropic = require('@anthropic-ai/sdk');
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let client = null;
+function getClient() {
+  if (!client) {
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not set');
+    client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return client;
+}
 
 const STAGE_MAP = {
   'order_confirmed':    { stage: 0, status: 'Order Confirmed' },
@@ -50,7 +57,7 @@ async function parseEmail({ from, subject, snippet, body = '', orderNumberHint =
   ].filter(Boolean).join('\n\n');
 
   try {
-    const response = await client.messages.create({
+    const response = await getClient().messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 256,
       system: SYSTEM_PROMPT,

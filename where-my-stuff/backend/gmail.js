@@ -1,5 +1,5 @@
 const { google } = require('googleapis');
-const { parseEmail } = require('./parser');
+const { parseEmail, parseEmailsBatch } = require('./parser');
 
 // Smart query — covers all major Indian merchants + carriers + delivery keywords
 // This runs AFTER date filtering so the result set is small
@@ -338,65 +338,65 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   });
 
   const messages = listRes.data.messages || [];
-  const results = [];
 
-  // Batch fetch: 10 at a time to avoid rate limits
+  // Step 1: fetch all raw email data in parallel (10 at a time — Gmail API, not Haiku)
+  const rawEmails = [];
   for (let i = 0; i < messages.length; i += 10) {
     const batch = messages.slice(i, i + 10);
-    const batchResults = await Promise.all(
-      batch.map(async ({ id }) => {
-        try {
-          const msg = await gmail.users.messages.get({
-            userId: 'me',
-            id,
-            format: 'full',
-          });
-          const headers = msg.data.payload?.headers || [];
-          const h = (name) => headers.find(h => h.name === name)?.value || '';
-          const from = h('From');
-          const subject = h('Subject');
-          const dateStr = h('Date');
-          // Skip newsletters/promos — they have List-Unsubscribe
-          // But always allow known merchant/carrier domains (they use this header for transactional email too)
-          if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) return null;
-          // Skip user-learned blocks
-          if (isUserBlocked(from, subject, userBlocks)) return null;
-          const snippet = decodeEntities(msg.data.snippet || '');
-          const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
-          const parsed = parseEmail({ from, subject, snippet, body, orderNumberHint });
-          const fromEmail = extractEmail(from);
-          // Apply sender-based stage floor — known Amazon addresses tell us the event type
-          const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
-          if (stageFloor > parsed.stage) {
-            parsed.stage = stageFloor;
-            parsed.status = SENDER_STATUS_FLOOR[fromEmail];
-          }
-          return {
-            gmail_message_id: id,
-            thread_id: msg.data.threadId || null,
-            from_address: fromEmail,
-            image_url: imageUrl,
-            price: price,
-            ...parsed,
-            subject: decodeEntities(subject),
-            snippet: snippet.slice(0, 500),
-            received_date: dateStr ? new Date(dateStr).getTime() : Date.now(),
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    // Keep only emails with real delivery signals.
-    // Trusted senders bypass the filter — parser still determines stage from subject/body.
-    // orderNumber must be ≥6 chars to avoid short receipt fragments like "2024".
-    const isDelivery = r =>
-      TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
-      r.trackingNumber ||
-      (r.orderNumber && r.orderNumber.length >= 6) ||
-      r.stage > 0;
-    results.push(...batchResults.filter(r => r && isDelivery(r)));
+    const fetched = await Promise.all(batch.map(async ({ id }) => {
+      try {
+        const msg = await gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+        const headers = msg.data.payload?.headers || [];
+        const h = name => headers.find(h => h.name === name)?.value || '';
+        const from = h('From');
+        const subject = h('Subject');
+        const dateStr = h('Date');
+        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) return null;
+        if (isUserBlocked(from, subject, userBlocks)) return null;
+        const snippet = decodeEntities(msg.data.snippet || '');
+        const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+        return {
+          id, from, subject, snippet, body, imageUrl, price, orderNumberHint,
+          thread_id: msg.data.threadId || null,
+          fromEmail: extractEmail(from),
+          dateStr,
+        };
+      } catch { return null; }
+    }));
+    rawEmails.push(...fetched.filter(Boolean));
   }
+
+  // Step 2: parse all at once — regex for clear cases, Haiku batches for ambiguous
+  const parseInputs = rawEmails.map(e => ({
+    from: e.from, subject: e.subject, snippet: e.snippet,
+    body: e.body, orderNumberHint: e.orderNumberHint,
+  }));
+  const parsed = await parseEmailsBatch(parseInputs);
+
+  // Step 3: assemble results and apply sender-based stage floors
+  const isDelivery = r =>
+    TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
+    r.trackingNumber ||
+    (r.orderNumber && r.orderNumber.length >= 6) ||
+    r.stage > 0;
+
+  const results = rawEmails.map((e, i) => {
+    const p = parsed[i];
+    if (!p) return null;
+    const stageFloor = SENDER_STAGE_FLOOR[e.fromEmail] ?? -1;
+    if (stageFloor > p.stage) { p.stage = stageFloor; p.status = SENDER_STATUS_FLOOR[e.fromEmail]; }
+    return {
+      gmail_message_id: e.id,
+      thread_id: e.thread_id,
+      from_address: e.fromEmail,
+      image_url: e.imageUrl,
+      price: e.price,
+      ...p,
+      subject: decodeEntities(e.subject),
+      snippet: e.snippet.slice(0, 500),
+      received_date: e.dateStr ? new Date(e.dateStr).getTime() : Date.now(),
+    };
+  }).filter(r => r && isDelivery(r));
 
   return { packages: results, freshAccessToken };
 }

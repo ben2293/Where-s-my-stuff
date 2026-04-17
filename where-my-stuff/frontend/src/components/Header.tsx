@@ -1,4 +1,4 @@
-import { RefreshCw, LogOut, Package2 } from 'lucide-react';
+import { RefreshCw, LogOut, Package2, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { User } from '../types';
 
@@ -7,6 +7,8 @@ interface Props {
   syncing: boolean;
   onSync: () => void;
   onLogout: () => void;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }
 
 function relativeTime(ts: number): string {
@@ -19,7 +21,7 @@ function relativeTime(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function Header({ user, syncing, onSync, onLogout }: Props) {
+export default function Header({ user, syncing, onSync, onLogout, theme, onToggleTheme }: Props) {
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -51,6 +53,19 @@ export default function Header({ user, syncing, onSync, onLogout }: Props) {
             ? <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full border border-border" />
             : <div className="w-7 h-7 bg-secondary rounded-full flex items-center justify-center text-xs font-bold">{user.name?.[0]?.toUpperCase()}</div>
           }
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleTheme}
+            aria-label="Toggle theme"
+            className="w-8 h-8 text-muted-foreground hover:text-foreground"
+          >
+            {theme === 'dark'
+              ? <Sun className="w-3.5 h-3.5" aria-hidden />
+              : <Moon className="w-3.5 h-3.5" aria-hidden />
+            }
+          </Button>
 
           <Button
             variant="ghost"

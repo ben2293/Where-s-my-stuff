@@ -20,6 +20,8 @@ interface Props {
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
   onReport: (id: number) => Promise<void>;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }
 
 type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'return' | 'today' | 'tomorrow';
@@ -149,7 +151,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [displayLimit, setDisplayLimit] = useState(8);
@@ -203,7 +205,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} syncing={syncing} onSync={onSync} onLogout={onLogout} />
+      <Header user={user} syncing={syncing} onSync={onSync} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 

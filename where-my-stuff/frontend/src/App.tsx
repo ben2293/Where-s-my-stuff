@@ -36,6 +36,18 @@ interface LearnedToast {
 }
 
 export default function App() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('wms_theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    localStorage.setItem('wms_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+
   const [user, setUser]           = useState<User | null>(null);
   const [packages, setPackages]   = useState<Package[]>([]);
   const [pkgTotal, setPkgTotal]   = useState(0);
@@ -214,7 +226,7 @@ export default function App() {
     <>
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} theme={theme} onToggleTheme={toggleTheme} />
       }
 
       {/* Report undo toast */}

@@ -4,6 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { getDb, get, all, run } = require('./db');
 const { getAuthUrl, exchangeCode, syncGmail, resyncPackage } = require('./gmail');
+const { extractExpectedDate } = require('./parser');
 
 const app = express();
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -152,9 +153,10 @@ app.post('/api/sync', requireAuth, async (req, res) => {
           run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
           user.access_token = fat;
         }
-        if (p) {
-          run('UPDATE packages SET expected_date = ? WHERE id = ?', [p.expectedDate || null, pkg.id]);
-        }
+        const newDate = p?.expectedDate || extractExpectedDate(
+          `${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date
+        );
+        run('UPDATE packages SET expected_date = ? WHERE id = ?', [newDate || null, pkg.id]);
       } catch (e) {
         console.warn(`[sync] active date re-verify failed for pkg ${pkg.id}:`, e.message);
       }

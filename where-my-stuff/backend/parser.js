@@ -308,4 +308,4 @@ async function parseEmail(email) {
   return results[0];
 }
 
-module.exports = { parseEmail, parseEmailsBatch };
+module.exports = { parseEmail, parseEmailsBatch, extractExpectedDate };

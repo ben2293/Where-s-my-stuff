@@ -27,9 +27,10 @@ function isKnownDeliverySender(email) {
   return false;
 }
 
-// Amazon sends from specific addresses depending on event.
-// These act as a minimum stage floor — if the parser detects a higher stage, keep it.
-// Contingency: if none of these match, normal parser detection still runs.
+// Well-known Amazon senders where the event type is unambiguous.
+// Used as a MINIMUM stage floor — parser wins if it detects something higher.
+// return@/no-reply@ are intentionally excluded from the floor: their content varies
+// (cancellations, refunds, surveys) so we let the parser determine stage.
 const SENDER_STAGE_FLOOR = {
   'auto-confirm@amazon.in':         0,  // order confirmed
   'auto-confirm@amazon.com':        0,
@@ -47,6 +48,24 @@ const SENDER_STATUS_FLOOR = {
   'order-update@amazon.in':         'Delivered',
   'order-update@amazon.com':        'Delivered',
 };
+
+// Senders we trust as genuine delivery-related emails.
+// These bypass the isDelivery filter (no tracking/order number required).
+// Stage is still determined by the parser + subject/body keywords — sender just
+// guarantees the email is relevant, not what state the package is in.
+const TRUSTED_DELIVERY_SENDERS = new Set([
+  // Amazon — known transactional addresses
+  'auto-confirm@amazon.in',       'auto-confirm@amazon.com',
+  'shipment-tracking@amazon.in',  'shipment-tracking@amazon.com',
+  'order-update@amazon.in',       'order-update@amazon.com',
+  'return@amazon.in',             'return@amazon.com',
+  'no-reply@amazon.in',           'no-reply@amazon.com',
+  // Flipkart / Ekart
+  'no-reply@flipkart.com',
+  'no-reply@nct.flipkart.com',
+  // Myntra
+  'updates@myntra.com',
+]);
 
 const DELIVERY_QUERY = [
   // Amazon — bare domain (no @) matches all subdomains: email.amazon.in, m.amazon.in, etc.
@@ -360,8 +379,10 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
       })
     );
     // Keep only emails with real delivery signals.
+    // Trusted senders bypass the filter — parser still determines stage from subject/body.
     // orderNumber must be ≥6 chars to avoid short receipt fragments like "2024".
     const isDelivery = r =>
+      TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
       r.trackingNumber ||
       (r.orderNumber && r.orderNumber.length >= 6) ||
       r.stage > 0;

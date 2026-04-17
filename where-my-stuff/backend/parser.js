@@ -171,7 +171,7 @@ const CARRIER_PATTERNS = [
 
 const MERCHANT_FROM_PATTERNS = [
   { name: 'Amazon', patterns: [/@amazon\.(in|com)\b/i] },
-  { name: 'Flipkart', patterns: [/@flipkart\.com\b/i] },
+  { name: 'Flipkart', patterns: [/@(?:[a-z0-9-]+\.)?flipkart\.com\b/i, /@ekartlogistics\.com\b/i] },
   { name: 'Myntra', patterns: [/@myntra\.com\b/i] },
   { name: 'Nykaa', patterns: [/@nykaa\.com\b/i] },
   { name: 'Meesho', patterns: [/@meesho\.com\b/i] },

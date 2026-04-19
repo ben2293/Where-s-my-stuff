@@ -336,6 +336,8 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
     ? Math.floor(lastSyncMs / 1000)
     : Math.floor(Date.now() / 1000) - 90 * 24 * 3600;
 
+  console.log(`[sync] lastSyncMs=${lastSyncMs} afterSec=${afterSec} query=after:${afterSec}`);
+
   const listRes = await gmail.users.messages.list({
     userId: 'me',
     q: `(${DELIVERY_QUERY}) after:${afterSec}`,
@@ -343,6 +345,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   });
 
   const messages = listRes.data.messages || [];
+  console.log(`[sync] Gmail returned ${messages.length} messages`);
 
   // Step 1: fetch all raw email data in parallel (10 at a time — Gmail API, not Haiku)
   const rawEmails = [];

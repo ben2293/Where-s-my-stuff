@@ -130,7 +130,7 @@ function applyStageFilter(pkgs: Package[], filter: StageFilter): Package[] {
   if (filter === 'delivered') return pkgs.filter(p => p.stage === 5);
   if (filter === 'failed')    return pkgs.filter(p => p.stage === 6);
   if (filter === 'return')    return pkgs.filter(p => p.stage === 7 || p.stage === 8);
-  if (filter === 'active')    return pkgs.filter(p => p.stage > 0 && p.stage < 5);
+  if (filter === 'active')    return pkgs.filter(p => p.stage >= 0 && p.stage < 5);
   if (filter === 'today')     return pkgs.filter(p => {
     if (p.stage >= 5) return false;
     const d = parseExpectedDate(p.expected_date, p.received_date);
@@ -328,8 +328,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
             )}
           </div>
         ) : (() => {
-          const active = filtered.filter(p => p.stage >= 1 && p.stage <= 4);
-          const rest   = filtered.filter(p => p.stage < 1 || p.stage > 4)
+          const active = filtered.filter(p => p.stage >= 0 && p.stage <= 4);
+          const rest   = filtered.filter(p => p.stage < 0 || p.stage > 4)
             .sort((a, b) => sortOrder === 'newest'
               ? b.received_date - a.received_date
               : a.received_date - b.received_date);

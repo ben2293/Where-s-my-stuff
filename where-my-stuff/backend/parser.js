@@ -69,7 +69,7 @@ const STAGE_PATTERNS = [
   { stage: 3, status: 'In Transit',        patterns: [/in[\s-]transit/i, /reached .{0,25}(?:facility|hub|center)/i, /at .{0,25}sorting/i, /departed from .{0,25}(?:facility|hub)/i] },
   { stage: 2, status: 'Dispatched',        patterns: [/\bshipped\b/i, /\bdispatched\b/i, /\barriving\b/i, /has been shipped/i, /order (?:is )?on its way/i, /order shipped/i, /(?:awb|waybill)[:\s#]+[A-Z0-9]/i] },
   { stage: 1, status: 'Processing',        patterns: [/being packed/i, /preparing (?:your )?order/i, /getting (?:your order|it) ready/i, /ready to ship/i] },
-  { stage: 0, status: 'Order Confirmed',   patterns: [/order (?:is )?confirmed/i, /order (?:has been )?placed/i, /thank(?:s| you) for (?:your )?order/i, /payment (?:received|confirmed|successful)/i] },
+  { stage: 0, status: 'Ordered',            patterns: [/order (?:is )?confirmed/i, /order (?:has been )?placed/i, /thank(?:s| you) for (?:your )?order/i, /payment (?:received|confirmed|successful)/i] },
 ];
 
 function detectStage(text) {
@@ -160,13 +160,12 @@ function quickParse({ from, subject, snippet, orderNumberHint, receivedMs }) {
   return { stageResult, merchant, trackingNumber, orderNumber, expectedDate };
 }
 
-// An email is "resolved" if we have stage + identifier — BUT stage 2-4 always go through
-// Haiku so we get an accurate absolute expected_date with today's date as context.
+// An email is "resolved" if we have stage + identifier — BUT stage 0-4 always go through
+// Haiku: stage 0 to extract expected date + full order context; stage 2-4 for accurate date.
 function isResolved({ stageResult, merchant, trackingNumber, orderNumber }) {
   if (!stageResult) return false;
-  if (stageResult.stage >= 2 && stageResult.stage <= 4) return false; // active — Haiku for accurate date
+  if (stageResult.stage >= 0 && stageResult.stage <= 4) return false; // always Haiku for active+ordered
   if (stageResult.stage > 0) return true;
-  if (trackingNumber || orderNumber) return true;
   return false;
 }
 
@@ -211,7 +210,7 @@ async function haikuBatch(emails) {
 }
 
 const STAGE_MAP = {
-  order_confirmed: { stage: 0, status: 'Order Confirmed' },
+  order_confirmed: { stage: 0, status: 'Ordered' },
   processing:      { stage: 1, status: 'Processing' },
   dispatched:      { stage: 2, status: 'Dispatched' },
   in_transit:      { stage: 3, status: 'In Transit' },

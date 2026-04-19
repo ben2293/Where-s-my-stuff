@@ -73,7 +73,13 @@ export default function App() {
     try {
       const res = await authFetch('/auth/me');
       const { user: u } = await res.json();
-      if (u) { setUser(u); await loadPackages(); }
+      if (u) {
+        if (!u.last_sync) {
+          const local = parseInt(localStorage.getItem('wms_last_sync') ?? '0');
+          if (local) u.last_sync = local;
+        }
+        setUser(u); await loadPackages();
+      }
     } catch { /* network error */ }
     setLoading(false);
   }
@@ -113,7 +119,9 @@ export default function App() {
       else {
         setPackages(data.packages);
         setPkgTotal(data.packages.length);
-        setUser(u => u ? { ...u, last_sync: Date.now() } : u);
+        const now = Date.now();
+        localStorage.setItem('wms_last_sync', String(now));
+        setUser(u => u ? { ...u, last_sync: now } : u);
       }
     } catch { setSyncError('Network error. Check your connection.'); }
     setSyncing(false);

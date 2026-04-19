@@ -9,7 +9,7 @@ interface Props {
 }
 
 const STAGE_BADGE: Record<number, { label: string; color: string; bg: string }> = {
-  0: { label: 'Confirmed',  color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' },
+  0: { label: 'Ordered',    color: '#9CA3AF', bg: 'rgba(156,163,175,0.15)' },
   5: { label: 'Delivered',  color: '#4ade80', bg: 'rgba(74,222,128,0.12)' },
   6: { label: 'Failed',     color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
   7: { label: 'Return',     color: '#fb923c', bg: 'rgba(251,146,60,0.12)'  },

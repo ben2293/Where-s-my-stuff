@@ -41,8 +41,8 @@ const SENDER_STAGE_FLOOR = {
 };
 
 const SENDER_STATUS_FLOOR = {
-  'auto-confirm@amazon.in':         'Order Confirmed',
-  'auto-confirm@amazon.com':        'Order Confirmed',
+  'auto-confirm@amazon.in':         'Ordered',
+  'auto-confirm@amazon.com':        'Ordered',
   'shipment-tracking@amazon.in':    'Dispatched',
   'shipment-tracking@amazon.com':   'Dispatched',
   'order-update@amazon.in':         'Delivered',

@@ -26,7 +26,7 @@ export interface Package {
 }
 
 export const STAGE_LABELS = [
-  'Order Confirmed',
+  'Ordered',
   'Processing',
   'Dispatched',
   'In Transit',
@@ -34,7 +34,7 @@ export const STAGE_LABELS = [
   'Delivered',
 ];
 
-export const STAGE_SHORT = ['Confirmed', 'Packing', 'Shipped', 'Transit', 'OFD', 'Done'];
+export const STAGE_SHORT = ['Ordered', 'Packing', 'Shipped', 'Transit', 'OFD', 'Done'];
 
 // Tailwind colour classes per stage (0-5, +6 for failed)
 export const STAGE_COLORS = [

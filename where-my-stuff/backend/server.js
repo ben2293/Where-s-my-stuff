@@ -131,11 +131,13 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       );
     }
 
-    // Promote any active package whose order/tracking is already manually delivered
-    // (handles new emails from the same order being inserted as fresh active rows)
+    run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
+
+    // Promote any package whose order/tracking is already manually delivered
+    // (handles new emails from the same order being inserted as fresh rows at any stage)
     run(
       `UPDATE packages SET stage=5, status='Delivered', manually_delivered=1
-       WHERE user_email=? AND stage BETWEEN 1 AND 4 AND (
+       WHERE user_email=? AND stage BETWEEN 0 AND 4 AND (
          (thread_id IS NOT NULL AND thread_id IN (
            SELECT thread_id FROM packages
            WHERE user_email=? AND manually_delivered=1 AND thread_id IS NOT NULL
@@ -184,8 +186,6 @@ app.post('/api/sync', requireAuth, async (req, res) => {
         console.warn(`[sync] active date re-verify failed for pkg ${pkg.id}:`, e.message);
       }
     }
-
-    run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
 
     const all_pkgs = all(
       'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT 200',
@@ -322,7 +322,7 @@ app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
   if (typeof stage !== 'number' || stage < 0 || stage > 8) return res.status(400).json({ error: 'Invalid stage' });
   const pkg = get('SELECT id, order_number, tracking_number, thread_id FROM packages WHERE id = ? AND user_email = ?', [id, req.userEmail]);
   if (!pkg) return res.status(404).json({ error: 'Not found' });
-  const STATUS_MAP = { 0:'Order Confirmed',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
+  const STATUS_MAP = { 0:'Ordered',1:'Processing',2:'Dispatched',3:'In Transit',4:'Out for Delivery',5:'Delivered',6:'Failed / Returned',7:'Return Initiated',8:'Returned' };
   const newStatus = STATUS_MAP[stage] ?? 'Order Confirmed';
   const manuallyDelivered = stage >= 5 ? 1 : 0;
   const ts = "strftime('%s','now')";

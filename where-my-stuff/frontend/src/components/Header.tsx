@@ -45,7 +45,6 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
 interface Props {
   user: User;
   syncing: boolean;
-  hasPackages: boolean;
   onSync: () => void;
   onCleanse: () => void;
   onLogout: () => void;
@@ -63,7 +62,7 @@ function relativeTime(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function Header({ user, syncing, hasPackages, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
+export default function Header({ user, syncing, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
   const [shaking, setShaking] = useState(false);
 
   function playWhoosh() {

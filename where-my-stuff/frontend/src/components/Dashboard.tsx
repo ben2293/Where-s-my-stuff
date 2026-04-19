@@ -222,7 +222,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} syncing={syncing} hasPackages={packages.length > 0} onSync={onSync} onCleanse={onCleanse} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
+      <Header user={user} syncing={syncing} onSync={onSync} onCleanse={onCleanse} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 

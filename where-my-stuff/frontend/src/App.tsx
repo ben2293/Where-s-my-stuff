@@ -198,9 +198,11 @@ export default function App() {
     if (!pkg) return;
     const prevStage  = pkg.stage;
     const prevStatus = pkg.status;
+    const ORDER_BLACKLIST = /^(number|no|id|update|summary|details|status|confirmation|confirmed|regular|express|placed|received|accepted|cancelled|canceled)$/i;
+    const validOrder = pkg.order_number && !ORDER_BLACKLIST.test(pkg.order_number) ? pkg.order_number : null;
     const relatedIds = packages
       .filter(p => p.id === id
-        || (pkg.order_number   && p.order_number   === pkg.order_number)
+        || (validOrder && p.order_number === validOrder)
         || (pkg.tracking_number && p.tracking_number === pkg.tracking_number))
       .map(p => p.id);
     const now = Math.floor(Date.now() / 1000);

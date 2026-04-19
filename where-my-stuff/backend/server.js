@@ -345,7 +345,8 @@ app.patch('/api/packages/:id/stage', requireAuth, (req, res) => {
     run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE user_email=? AND thread_id=? AND id!=?`,
       [stage, newStatus, manuallyDelivered, req.userEmail, pkg.thread_id, id]);
   }
-  if (pkg.order_number) {
+  const ORDER_BLACKLIST = /^(number|no|id|update|summary|details|status|confirmation|confirmed|regular|express|placed|received|accepted|cancelled|canceled)$/i;
+  if (pkg.order_number && !ORDER_BLACKLIST.test(pkg.order_number)) {
     run(`UPDATE packages SET stage=?, status=?, manually_delivered=?, updated_at=${ts} WHERE user_email=? AND order_number=? AND id!=?`,
       [stage, newStatus, manuallyDelivered, req.userEmail, pkg.order_number, id]);
   }

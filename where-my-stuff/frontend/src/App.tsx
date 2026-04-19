@@ -234,12 +234,18 @@ export default function App() {
     });
   }
 
-  async function handleCleanse() {
-    await authFetch('/api/cleanse', { method: 'POST' });
-    setPackages([]); setPkgTotal(0);
-    localStorage.removeItem('wms_last_sync');
-    setUser(u => u ? { ...u, last_sync: 0 } : u);
-    await handleSync();
+  function handleCleanse() {
+    const timer = setTimeout(async () => {
+      await authFetch('/api/cleanse', { method: 'POST' });
+      setPackages([]); setPkgTotal(0);
+      localStorage.removeItem('wms_last_sync');
+      setUser(u => u ? { ...u, last_sync: 0 } : u);
+      await handleSync();
+    }, 5000);
+    toast('Resetting all data…', {
+      duration: 5000,
+      action: { label: 'Undo', onClick: () => clearTimeout(timer) },
+    });
   }
 
   async function handleDeleteBlock(id: number) {

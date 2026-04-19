@@ -71,7 +71,7 @@ export default function Header({ user, syncing, onSync, onCleanse, onLogout, the
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => { if (confirm('Clear all data and re-sync from scratch?')) onCleanse(); }}
+            onClick={onCleanse}
             aria-label="Reset data"
             className="w-8 h-8 text-muted-foreground hover:text-red-400 hover:bg-red-950"
           >

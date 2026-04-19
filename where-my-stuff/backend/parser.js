@@ -203,7 +203,8 @@ async function haikuBatch(emails) {
       system: HAIKU_SYSTEM,
       messages: [{ role: 'user', content: prompt }],
     });
-    const parsed = JSON.parse(res.content[0].text.trim());
+    const raw = res.content[0].text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length !== emails.length) throw new Error('length mismatch');
     return parsed;
   } catch (e) {

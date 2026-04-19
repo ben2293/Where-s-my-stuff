@@ -295,12 +295,18 @@ app.post('/api/packages/:id/report', requireAuth, (req, res) => {
     } catch { /* duplicate — ignore */ }
   }
 
+  // Return IDs of the created blocks so the client can undo
+  const blockIds = blocks.map(b => {
+    const row = get('SELECT id FROM user_blocks WHERE user_email = ? AND type = ? AND value = ?', [req.userEmail, b.type, b.value]);
+    return row?.id;
+  }).filter(id => id != null);
+
   // Delete the package so it never comes back
   run('DELETE FROM packages WHERE id = ?', [id]);
 
   console.log(`[feedback] ${req.userEmail} reported "${pkg.subject}" — ${reason}`);
 
-  res.json({ success: true, reason, learnedLabel, blocksAdded: blocks.length });
+  res.json({ success: true, reason, learnedLabel, blocksAdded: blocks.length, blockIds });
 });
 
 app.get('/api/blocks', requireAuth, (req, res) => {

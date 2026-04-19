@@ -23,6 +23,8 @@ interface Props {
   onReport: (id: number) => Promise<void>;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  blocks: { id: number; type: string; value: string; reason: string }[];
+  onDeleteBlock: (id: number) => void;
 }
 
 type StageFilter = 'all' | 'active' | 'delivered' | 'failed' | 'return' | 'today' | 'tomorrow';
@@ -155,7 +157,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -166,6 +168,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
     catch { return new Set(); }
   });
   const [showMuted, setShowMuted]     = useState(false);
+  const [showBlocks, setShowBlocks]   = useState(false);
 
   const mute = (m: string) => setBlacklist(prev => {
     const n = new Set(prev); n.add(m);
@@ -263,6 +266,34 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     className="flex items-center gap-1.5 px-3 py-1 bg-secondary border border-border rounded-full text-xs text-muted-foreground hover:border-muted-foreground transition-all">
                     {m} <X className="w-3 h-3" />
                   </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Blocked senders */}
+        {blocks.length > 0 && (
+          <div className="mb-4">
+            <button onClick={() => setShowBlocks(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <EyeOff className="w-3.5 h-3.5" />
+              {blocks.length} blocked sender{blocks.length !== 1 ? 's' : ''} · {showBlocks ? 'hide' : 'manage'}
+            </button>
+            {showBlocks && (
+              <div className="flex flex-col gap-1.5 mt-2">
+                {blocks.map(b => (
+                  <div key={b.id} className="flex items-center justify-between px-3 py-2 bg-secondary border border-border rounded-lg text-xs">
+                    <div>
+                      <span className="text-foreground font-medium">{b.value}</span>
+                      {b.reason && <span className="text-muted-foreground ml-2">· {b.reason}</span>}
+                    </div>
+                    <button
+                      onClick={() => onDeleteBlock(b.id)}
+                      className="ml-3 flex-shrink-0 flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="w-3 h-3" /> Unblock
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

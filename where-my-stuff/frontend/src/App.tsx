@@ -51,6 +51,7 @@ export default function App() {
   const [syncing, setSyncing]     = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [blocks, setBlocks] = useState<{ id: number; type: string; value: string; reason: string }[]>([]);
   const [undoPending, setUndoPending] = useState<UndoPending | null>(null);
   const [reportUndoPending, setReportUndoPending] = useState<{ pkg: Package } | null>(null);
   const undoRef       = useRef<UndoPending | null>(null);
@@ -78,10 +79,17 @@ export default function App() {
           const local = parseInt(localStorage.getItem('wms_last_sync') ?? '0');
           if (local) u.last_sync = local;
         }
-        setUser(u); await loadPackages();
+        setUser(u); await loadPackages(); await loadBlocks();
       }
     } catch { /* network error */ }
     setLoading(false);
+  }
+
+  async function loadBlocks() {
+    try {
+      const res = await authFetch('/api/blocks');
+      if (res.ok) setBlocks(await res.json());
+    } catch { /* network error */ }
   }
 
   async function loadPackages() {
@@ -155,7 +163,21 @@ export default function App() {
         const res = await authFetch(`/api/packages/${id}/report`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-          toast(data.learnedLabel, { description: data.reason, duration: 4000 });
+          await loadBlocks();
+          toast(data.learnedLabel, {
+            description: data.reason,
+            duration: 8000,
+            action: data.blockIds?.length ? {
+              label: 'Undo',
+              onClick: async () => {
+                await Promise.all((data.blockIds as number[]).map((bid: number) =>
+                  authFetch(`/api/blocks/${bid}`, { method: 'DELETE' })
+                ));
+                await loadBlocks();
+                toast('Block removed');
+              },
+            } : undefined,
+          });
         }
       } catch { /* network error */ }
     }, 5000);
@@ -212,6 +234,11 @@ export default function App() {
     });
   }
 
+  async function handleDeleteBlock(id: number) {
+    await authFetch(`/api/blocks/${id}`, { method: 'DELETE' });
+    setBlocks(prev => prev.filter(b => b.id !== id));
+  }
+
   async function handleLogout() {
     await authFetch('/auth/logout', { method: 'POST' });
     clearToken();
@@ -229,7 +256,7 @@ export default function App() {
       <Toaster position="bottom-center" richColors closeButton />
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} theme={theme} onToggleTheme={toggleTheme} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
       }
     </>
   );

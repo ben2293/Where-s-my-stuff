@@ -309,6 +309,12 @@ app.post('/api/packages/:id/report', requireAuth, (req, res) => {
   res.json({ success: true, reason, learnedLabel, blocksAdded: blocks.length, blockIds });
 });
 
+app.post('/api/cleanse', requireAuth, (req, res) => {
+  run('DELETE FROM packages WHERE user_email = ?', [req.userEmail]);
+  run('UPDATE users SET last_sync = 0 WHERE email = ?', [req.userEmail]);
+  res.json({ success: true });
+});
+
 app.get('/api/blocks', requireAuth, (req, res) => {
   const blocks = all('SELECT * FROM user_blocks WHERE user_email = ? ORDER BY created_at DESC', [req.userEmail]);
   res.json(blocks);

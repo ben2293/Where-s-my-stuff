@@ -1,6 +1,23 @@
 import { RefreshCw, LogOut, Package2, Sun, Moon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
 import type { User } from '../types';
+
+const SYNC_VERBS = [
+  'Sniffing…', 'Burrowing…', 'Ingesting…', 'Thinking…', 'Parsing…',
+  'Snooping…', 'Untangling…', 'Decoding…', 'Fetching…', 'Brewing…',
+  'Digging…', 'Scanning…', 'Crunching…', 'Sleuthing…', 'Mapping…',
+];
+
+function useSyncVerb(syncing: boolean) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (!syncing) { setIdx(0); return; }
+    const t = setInterval(() => setIdx(i => (i + 1) % SYNC_VERBS.length), 1000);
+    return () => clearInterval(t);
+  }, [syncing]);
+  return syncing ? SYNC_VERBS[idx] : 'Sync';
+}
 
 interface Props {
   user: User;
@@ -23,6 +40,7 @@ function relativeTime(ts: number): string {
 }
 
 export default function Header({ user, syncing, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
+  const syncLabel = useSyncVerb(syncing);
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -47,7 +65,7 @@ export default function Header({ user, syncing, onSync, onCleanse, onLogout, the
             aria-label={syncing ? 'Syncing…' : 'Sync Gmail'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} aria-hidden />
-            {syncing ? 'Syncing…' : 'Sync'}
+            {syncLabel}
           </Button>
 
           {user.picture

@@ -95,28 +95,26 @@ export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActiv
     <div className="group">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-secondary/50 transition-colors text-left"
         aria-expanded={open}
       >
         <span className="text-base flex-shrink-0 w-6 text-center" aria-hidden>{emoji}</span>
-        <span className="flex-1 min-w-0 text-sm text-foreground font-medium truncate">
-          <span className="font-semibold">{pkg.merchant}</span>
+        <span className="flex-1 min-w-0">
+          <span className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-semibold text-foreground">{pkg.merchant}</span>
+            {badge && (
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                style={{ color: badge.color, background: badge.bg }}>
+                {badge.label}
+              </span>
+            )}
+          </span>
           {title && (
-            <>
-              <span className="text-muted-foreground/40 mx-1.5">|</span>
-              <span className="font-normal text-muted-foreground">{title}</span>
-            </>
+            <span className="block text-xs text-muted-foreground truncate mt-0.5">{title}</span>
           )}
         </span>
 
-        {badge && (
-          <span className="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full"
-            style={{ color: badge.color, background: badge.bg }}>
-            {badge.label}
-          </span>
-        )}
-
-        <span className="flex-shrink-0 text-xs text-muted-foreground hidden sm:block w-14 text-right">
+        <span className="flex-shrink-0 text-xs text-muted-foreground w-14 text-right">
           {formatDate(pkg.received_date)}
         </span>
 
@@ -172,19 +170,19 @@ export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActiv
             return null;
           })()}
 
-          <div className="flex items-center justify-between pt-0.5">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-y-2 pt-1">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => onMute(pkg.merchant)}
                 className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors"
               >
-                Hide all {pkg.merchant} orders
+                Hide {pkg.merchant}
               </button>
               <button
                 onClick={() => onMoveToActive(pkg.id)}
                 className="text-[11px] text-muted-foreground/40 hover:text-blue-400 transition-colors"
               >
-                → Move to active
+                → Active
               </button>
             </div>
             <div className="flex items-center gap-3">
@@ -195,7 +193,7 @@ export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActiv
                 className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"
               >
                 <Mail className="w-3 h-3" />
-                View in Gmail
+                Gmail
               </a>
               <button
                 onClick={async () => {

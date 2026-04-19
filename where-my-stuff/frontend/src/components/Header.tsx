@@ -22,7 +22,7 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
     return () => clearInterval(t);
   }, [syncing]);
 
-  if (!syncing) return <span>Sync</span>;
+  if (!syncing) return <span style={{ display: 'inline-block', width: '5.5rem', textAlign: 'left' }}>Sync</span>;
 
   return (
     <>
@@ -36,6 +36,7 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
           50%       { opacity: 1;   }
         }
       `}</style>
+      <span style={{ display: 'inline-block', width: '5.5rem', textAlign: 'left' }}>
       <span
         key={animKey}
         style={{
@@ -48,6 +49,7 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
         }}
       >
         {SYNC_VERBS[idx]}
+      </span>
       </span>
     </>
   );

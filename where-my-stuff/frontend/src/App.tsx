@@ -251,11 +251,21 @@ export default function App() {
   }
 
   async function handleMoveToActive(id: number) {
+    const pkg = packages.find(p => p.id === id);
+    if (!pkg) return;
+    const ORDER_BLACKLIST = /^(number|no|id|update|summary|details|status|confirmation|confirmed|regular|express|placed|received|accepted|cancelled|canceled)$/i;
+    const validOrder = pkg.order_number && !ORDER_BLACKLIST.test(pkg.order_number) ? pkg.order_number : null;
+    const relatedIds = packages
+      .filter(p => p.id === id
+        || (validOrder && p.order_number === validOrder)
+        || (pkg.tracking_number && p.tracking_number === pkg.tracking_number)
+        || (pkg.thread_id && p.thread_id === pkg.thread_id))
+      .map(p => p.id);
     const res = await authFetch(`/api/packages/${id}/stage`, {
       method: 'PATCH',
       body: JSON.stringify({ stage: 0 }),
     });
-    if (res.ok) setPackages(prev => prev.map(p => p.id === id ? { ...p, stage: 0, status: 'Ordered' } : p));
+    if (res.ok) setPackages(prev => prev.map(p => relatedIds.includes(p.id) ? { ...p, stage: 0, status: 'Ordered' } : p));
   }
 
   async function handleDeleteBlock(id: number) {

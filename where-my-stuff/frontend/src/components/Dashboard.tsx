@@ -264,12 +264,10 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   {blacklist.size} hidden · {showMuted ? 'hide' : 'manage'}
                 </button>
               )}
-              {blocks.length > 0 && (
-                <button onClick={() => setShowBlocks(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  <EyeOff className="w-3.5 h-3.5" />
-                  {blocks.length} blocked · {showBlocks ? 'hide' : 'manage'}
-                </button>
-              )}
+              <button onClick={() => setShowBlocks(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <EyeOff className="w-3.5 h-3.5" />
+                {blocks.length} blocked · {showBlocks ? 'hide' : 'manage'}
+              </button>
             </div>
             {showMuted && (
               <div className="flex flex-wrap gap-2 mt-2">

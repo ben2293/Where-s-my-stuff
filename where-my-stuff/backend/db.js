@@ -1,4 +1,7 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Parse BIGINT (OID 20) as JS number instead of string
+types.setTypeParser(20, val => parseInt(val, 10));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -12,6 +15,7 @@ function convertParams(sql) {
 }
 
 async function getDb() {
+  // Run each statement separately — pg doesn't support multi-statement queries
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       email TEXT PRIMARY KEY,
@@ -23,7 +27,9 @@ async function getDb() {
       last_sync BIGINT DEFAULT 0,
       auth_token TEXT,
       created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
-    );
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS packages (
       id SERIAL PRIMARY KEY,
       user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
@@ -45,7 +51,9 @@ async function getDb() {
       manually_delivered INTEGER DEFAULT 0,
       updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
       UNIQUE(user_email, gmail_message_id)
-    );
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS user_blocks (
       id SERIAL PRIMARY KEY,
       user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
@@ -54,9 +62,9 @@ async function getDb() {
       reason TEXT,
       created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
       UNIQUE(user_email, type, value)
-    );
-    CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date);
+    )
   `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date)`);
   return pool;
 }
 

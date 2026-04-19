@@ -20,13 +20,18 @@ function getToken(req) {
 }
 
 async function requireAuth(req, res, next) {
-  const token = getToken(req);
-  if (!token) return res.status(401).json({ error: 'Not authenticated' });
-  const user = await get('SELECT * FROM users WHERE auth_token = ?', [token]);
-  if (!user) return res.status(401).json({ error: 'Not authenticated' });
-  req.userEmail = user.email;
-  req.user = user;
-  next();
+  try {
+    const token = getToken(req);
+    if (!token) return res.status(401).json({ error: 'Not authenticated' });
+    const user = await get('SELECT * FROM users WHERE auth_token = ?', [token]);
+    if (!user) return res.status(401).json({ error: 'Not authenticated' });
+    req.userEmail = user.email;
+    req.user = user;
+    next();
+  } catch (e) {
+    console.error('requireAuth error:', e.message);
+    res.status(500).json({ error: 'Database error' });
+  }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

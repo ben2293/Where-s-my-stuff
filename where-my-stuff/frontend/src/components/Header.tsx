@@ -22,7 +22,7 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
     return () => clearInterval(t);
   }, [syncing]);
 
-  if (!syncing) return <span style={{ display: 'inline-block', width: '5.5rem', textAlign: 'left' }}>Sync</span>;
+  if (!syncing) return <span>Sync</span>;
 
   return (
     <>

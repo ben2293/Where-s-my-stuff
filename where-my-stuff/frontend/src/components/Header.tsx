@@ -25,21 +25,20 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
   if (!syncing) return <span>Sync</span>;
 
   return (
-    <span className="inline-block overflow-hidden h-[1.1em] align-middle" style={{ minWidth: '7rem' }}>
+    <>
+      <style>{`
+        @keyframes tickerUp {
+          from { transform: translateY(6px); opacity: 0; }
+          to   { transform: translateY(0);   opacity: 1; }
+        }
+      `}</style>
       <span
         key={animKey}
-        className="inline-block"
-        style={{ animation: 'tickerUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
+        style={{ animation: 'tickerUp 0.3s cubic-bezier(0.4,0,0.2,1) both', display: 'inline-block' }}
       >
         {SYNC_VERBS[idx]}
       </span>
-      <style>{`
-        @keyframes tickerUp {
-          from { transform: translateY(100%); opacity: 0; }
-          to   { transform: translateY(0);    opacity: 1; }
-        }
-      `}</style>
-    </span>
+    </>
   );
 }
 

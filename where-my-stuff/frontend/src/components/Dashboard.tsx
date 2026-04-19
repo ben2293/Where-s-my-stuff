@@ -253,13 +253,23 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
           ))}
         </div>
 
-        {/* Muted merchants */}
-        {blacklist.size > 0 && (
+        {/* Muted merchants + blocked senders */}
+        {(blacklist.size > 0 || blocks.length > 0) && (
           <div className="mb-4">
-            <button onClick={() => setShowMuted(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <EyeOff className="w-3.5 h-3.5" />
-              {blacklist.size} hidden · {showMuted ? 'hide' : 'manage'}
-            </button>
+            <div className="flex items-center gap-4">
+              {blacklist.size > 0 && (
+                <button onClick={() => setShowMuted(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <EyeOff className="w-3.5 h-3.5" />
+                  {blacklist.size} hidden · {showMuted ? 'hide' : 'manage'}
+                </button>
+              )}
+              {blocks.length > 0 && (
+                <button onClick={() => setShowBlocks(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <EyeOff className="w-3.5 h-3.5" />
+                  {blocks.length} blocked · {showBlocks ? 'hide' : 'manage'}
+                </button>
+              )}
+            </div>
             {showMuted && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {[...blacklist].map(m => (
@@ -270,16 +280,6 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Blocked senders */}
-        {blocks.length > 0 && (
-          <div className="mb-4">
-            <button onClick={() => setShowBlocks(s => !s)} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <EyeOff className="w-3.5 h-3.5" />
-              {blocks.length} blocked sender{blocks.length !== 1 ? 's' : ''} · {showBlocks ? 'hide' : 'manage'}
-            </button>
             {showBlocks && (
               <div className="flex flex-col gap-1.5 mt-2">
                 {blocks.map(b => (
@@ -288,10 +288,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                       <span className="text-foreground font-medium">{b.value}</span>
                       {b.reason && <span className="text-muted-foreground ml-2">· {b.reason}</span>}
                     </div>
-                    <button
-                      onClick={() => onDeleteBlock(b.id)}
-                      className="ml-3 flex-shrink-0 flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                    >
+                    <button onClick={() => onDeleteBlock(b.id)} className="ml-3 flex-shrink-0 flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
                       <X className="w-3 h-3" /> Unblock
                     </button>
                   </div>

@@ -16,6 +16,7 @@ interface Props {
   syncing: boolean;
   syncError: string | null;
   onSync: () => void;
+  onCleanse: () => void;
   onLoadMore: () => void;
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
@@ -157,7 +158,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -221,7 +222,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} syncing={syncing} onSync={onSync} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
+      <Header user={user} syncing={syncing} onSync={onSync} onCleanse={onCleanse} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 

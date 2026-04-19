@@ -1,4 +1,4 @@
-import { RefreshCw, LogOut, Package2, Sun, Moon } from 'lucide-react';
+import { RefreshCw, LogOut, Package2, Sun, Moon, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { User } from '../types';
 
@@ -6,6 +6,7 @@ interface Props {
   user: User;
   syncing: boolean;
   onSync: () => void;
+  onCleanse: () => void;
   onLogout: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
@@ -21,7 +22,7 @@ function relativeTime(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function Header({ user, syncing, onSync, onLogout, theme, onToggleTheme }: Props) {
+export default function Header({ user, syncing, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -65,6 +66,16 @@ export default function Header({ user, syncing, onSync, onLogout, theme, onToggl
               ? <Sun className="w-3.5 h-3.5" aria-hidden />
               : <Moon className="w-3.5 h-3.5" aria-hidden />
             }
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { if (confirm('Clear all data and re-sync from scratch?')) onCleanse(); }}
+            aria-label="Reset data"
+            className="w-8 h-8 text-muted-foreground hover:text-red-400 hover:bg-red-950"
+          >
+            <Trash2 className="w-3.5 h-3.5" aria-hidden />
           </Button>
 
           <Button

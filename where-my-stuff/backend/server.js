@@ -173,14 +173,14 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     for (const pkg of activePkgs) {
       try {
         const tokens = { access_token: user.access_token, refresh_token: user.refresh_token };
-        const { package: p, freshAccessToken: fat } = await resyncPackage(tokens, pkg);
+        const { package: p, freshAccessToken: fat, body: resyncBody } = await resyncPackage(tokens, pkg);
         if (fat && fat !== user.access_token) {
           run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
           user.access_token = fat;
         }
-        const newDate = p?.expectedDate || extractExpectedDate(
-          `${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date
-        );
+        const newDate = p?.expectedDate
+          || extractExpectedDate(`${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date)
+          || (resyncBody ? extractExpectedDate(resyncBody, pkg.received_date) : null);
         run('UPDATE packages SET expected_date = ? WHERE id = ?', [newDate || null, pkg.id]);
       } catch (e) {
         console.warn(`[sync] active date re-verify failed for pkg ${pkg.id}:`, e.message);

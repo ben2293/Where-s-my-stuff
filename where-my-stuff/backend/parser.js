@@ -141,10 +141,13 @@ function extractOrderNumber(text, hint) {
 function extractExpectedDate(text, receivedMs) {
   const m1 = text.match(/(?:delivery|expected|estimated)\s+by[:\s]+([A-Za-z]+(?:day)?,\s*[A-Za-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
   if (m1) return resolveToISO(m1[1].trim(), receivedMs);
-  const m2 = text.match(/arriving?\s+(?:by\s+|on\s+)?(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
+  // "Arriving tomorrow 8 am" / "Arriving Monday, 21 Apr"
+  const m2 = text.match(/arriving?\s+(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
   if (m2) return resolveToISO(m2[1].trim(), receivedMs);
   const m3 = text.match(/(?:get it|delivers?)\s+by\s+((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s+[A-Za-z]+\s+\d+)?|tomorrow|today)/i);
   if (m3) return resolveToISO(m3[1].trim(), receivedMs);
+  const m4 = text.match(/expected\s+(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
+  if (m4) return resolveToISO(m4[1].trim(), receivedMs);
   return null;
 }
 

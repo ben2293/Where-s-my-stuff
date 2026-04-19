@@ -456,6 +456,7 @@ async function resyncPackage(userTokens, pkg) {
         subject: decodeEntities(subject),
         snippet: snippet.slice(0, 500),
         received_date: dateStr ? new Date(dateStr).getTime() : Date.now(),
+        _body: body,
       });
     } catch { /* skip bad messages */ }
   }
@@ -466,7 +467,9 @@ async function resyncPackage(userTokens, pkg) {
     b.stage > a.stage ? b :
     b.stage === a.stage && b.received_date > a.received_date ? b : a
   );
-  return { package: best, freshAccessToken };
+  const bestBody = best._body || '';
+  delete best._body;
+  return { package: best, freshAccessToken, body: bestBody };
 }
 
 module.exports = { getAuthUrl, exchangeCode, syncGmail, resyncPackage };

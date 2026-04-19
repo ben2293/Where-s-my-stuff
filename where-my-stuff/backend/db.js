@@ -1,36 +1,35 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
-const path = require('path');
+const { Pool } = require('pg');
 
-const DB_PATH = path.join(__dirname, 'data.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-let db = null;
+// Convert SQLite ? placeholders to Postgres $1, $2, ...
+function convertParams(sql) {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
 
 async function getDb() {
-  if (db) return db;
-  const SQL = await initSqlJs();
-  if (fs.existsSync(DB_PATH)) {
-    const fileBuffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-  db.run(`PRAGMA foreign_keys = ON;`);
-  db.run(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       email TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       picture TEXT,
       access_token TEXT,
       refresh_token TEXT,
-      token_expiry INTEGER DEFAULT 0,
-      last_sync INTEGER DEFAULT 0,
-      created_at INTEGER DEFAULT (strftime('%s','now'))
+      token_expiry BIGINT DEFAULT 0,
+      last_sync BIGINT DEFAULT 0,
+      auth_token TEXT,
+      created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
     );
     CREATE TABLE IF NOT EXISTS packages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
       gmail_message_id TEXT NOT NULL,
+      thread_id TEXT,
+      from_address TEXT,
       merchant TEXT DEFAULT 'Unknown',
       carrier TEXT,
       tracking_number TEXT,
@@ -38,71 +37,41 @@ async function getDb() {
       status TEXT DEFAULT 'Order Confirmed',
       stage INTEGER DEFAULT 0,
       subject TEXT,
-      received_date INTEGER,
+      received_date BIGINT,
       snippet TEXT,
-      updated_at INTEGER DEFAULT (strftime('%s','now')),
+      image_url TEXT,
+      price INTEGER,
+      expected_date TEXT,
+      manually_delivered INTEGER DEFAULT 0,
+      updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
       UNIQUE(user_email, gmail_message_id)
     );
-    CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date);
-  `);
-  // Migrations — ignore errors if column already exists
-  try { db.run(`ALTER TABLE packages ADD COLUMN thread_id TEXT`); } catch {}
-  try { db.run(`ALTER TABLE packages ADD COLUMN image_url TEXT`); } catch {}
-  try { db.run(`ALTER TABLE packages ADD COLUMN price INTEGER`); } catch {}
-  try { db.run(`ALTER TABLE packages ADD COLUMN expected_date TEXT`); } catch {}
-  try { db.run(`ALTER TABLE packages ADD COLUMN from_address TEXT`); } catch {}
-  try { db.run(`ALTER TABLE packages ADD COLUMN manually_delivered INTEGER DEFAULT 0`); } catch {}
-  try { db.run(`ALTER TABLE users ADD COLUMN auth_token TEXT`); } catch {}
-  try { db.run(`ALTER TABLE users ADD COLUMN last_sync INTEGER DEFAULT 0`); } catch {}
-  // Purge stale expected_dates for active packages — they will be re-verified via Haiku on next sync
-  try { db.run(`UPDATE packages SET expected_date = NULL WHERE stage BETWEEN 2 AND 4`); } catch {}
-  // User-learned blocks from thumbs-down feedback
-  try {
-    db.run(`CREATE TABLE IF NOT EXISTS user_blocks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+    CREATE TABLE IF NOT EXISTS user_blocks (
+      id SERIAL PRIMARY KEY,
       user_email TEXT NOT NULL REFERENCES users(email) ON DELETE CASCADE,
       type TEXT NOT NULL,
       value TEXT NOT NULL,
       reason TEXT,
-      created_at INTEGER DEFAULT (strftime('%s','now')),
+      created_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
       UNIQUE(user_email, type, value)
-    )`);
-  } catch {}
-  save();
-  return db;
+    );
+    CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date);
+  `);
+  return pool;
 }
 
-function save() {
-  if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+async function get(sql, params = []) {
+  const { rows } = await pool.query(convertParams(sql), params);
+  return rows[0];
 }
 
-// Promisified helpers that mirror better-sqlite3's sync API
-
-function get(sql, params = []) {
-  if (!db) throw new Error('DB not initialised');
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const row = stmt.step() ? stmt.getAsObject() : undefined;
-  stmt.free();
-  return row;
-}
-
-function all(sql, params = []) {
-  if (!db) throw new Error('DB not initialised');
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
+async function all(sql, params = []) {
+  const { rows } = await pool.query(convertParams(sql), params);
   return rows;
 }
 
-function run(sql, params = []) {
-  if (!db) throw new Error('DB not initialised');
-  db.run(sql, params);
-  save();
+async function run(sql, params = []) {
+  await pool.query(convertParams(sql), params);
 }
 
-module.exports = { getDb, get, all, run, save };
+module.exports = { getDb, get, all, run };

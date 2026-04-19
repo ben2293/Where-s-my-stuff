@@ -25,7 +25,7 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
   if (!syncing) return <span>Sync</span>;
 
   return (
-    <span className="inline-block overflow-hidden h-[1.1em] align-middle" style={{ minWidth: '5rem' }}>
+    <span className="inline-block overflow-hidden h-[1.1em] align-middle" style={{ minWidth: '7rem' }}>
       <span
         key={animKey}
         className="inline-block"

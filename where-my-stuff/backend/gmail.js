@@ -275,7 +275,12 @@ function extractBodyAndImage(payload) {
     } else if (mime === 'text/html' && part.body?.data) {
       const html = Buffer.from(part.body.data, 'base64').toString('utf-8');
       rawHtml += html;
-      texts.push(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+      const clean = html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ');
+      texts.push(clean);
     }
     if (part.parts) part.parts.forEach(walk);
   }

@@ -9,7 +9,7 @@ const SYNC_VERBS = [
   'Digging…', 'Scanning…', 'Crunching…', 'Sleuthing…', 'Mapping…',
 ];
 
-function SyncLabel({ syncing }: { syncing: boolean }) {
+export function SyncLabel({ syncing }: { syncing: boolean }) {
   const [idx, setIdx] = useState(0);
   const [animKey, setAnimKey] = useState(0);
 
@@ -46,6 +46,7 @@ function SyncLabel({ syncing }: { syncing: boolean }) {
 interface Props {
   user: User;
   syncing: boolean;
+  hasPackages: boolean;
   onSync: () => void;
   onCleanse: () => void;
   onLogout: () => void;
@@ -63,7 +64,7 @@ function relativeTime(ts: number): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function Header({ user, syncing, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
+export default function Header({ user, syncing, hasPackages, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -88,7 +89,7 @@ export default function Header({ user, syncing, onSync, onCleanse, onLogout, the
             aria-label={syncing ? 'Syncing…' : 'Sync Gmail'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} aria-hidden />
-            <SyncLabel syncing={syncing} />
+            {hasPackages ? <SyncLabel syncing={syncing} /> : <span>{syncing ? 'Syncing…' : 'Sync'}</span>}
           </Button>
 
           {user.picture

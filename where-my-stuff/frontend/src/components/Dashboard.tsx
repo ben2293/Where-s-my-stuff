@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Package2, Search, X, EyeOff, Sparkles, ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { parseExpectedDate } from '@/lib/dates';
-import Header from './Header';
+import Header, { SyncLabel } from './Header';
 import PackageCard from './PackageCard';
 import CompactPackageRow from './CompactPackageRow';
 import type { User, Package } from '../types';
@@ -222,7 +222,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} syncing={syncing} onSync={onSync} onCleanse={onCleanse} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
+      <Header user={user} syncing={syncing} hasPackages={packages.length > 0} onSync={onSync} onCleanse={onCleanse} onLogout={onLogout} theme={theme} onToggleTheme={onToggleTheme} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
@@ -352,7 +352,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
             <p className="text-muted-foreground text-xs mt-1">{packages.length === 0 && !isDemo ? 'Click Sync to fetch your delivery emails' : 'Try a different search or filter'}</p>
             {packages.length === 0 && !isDemo && (
               <Button onClick={onSync} disabled={syncing} className="mt-5" size="lg">
-                {syncing ? 'Syncing…' : 'Sync now'}
+                <SyncLabel syncing={syncing} />
+                {!syncing && ' now'}
               </Button>
             )}
           </div>

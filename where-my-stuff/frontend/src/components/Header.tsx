@@ -64,6 +64,14 @@ function relativeTime(ts: number): string {
 }
 
 export default function Header({ user, syncing, hasPackages, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
+  const [shaking, setShaking] = useState(false);
+
+  function handleCleanse() {
+    setShaking(true);
+    setTimeout(() => setShaking(false), 600);
+    onCleanse();
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -88,7 +96,7 @@ export default function Header({ user, syncing, hasPackages, onSync, onCleanse, 
             aria-label={syncing ? 'Syncing…' : 'Sync Gmail'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} aria-hidden />
-            {hasPackages ? <SyncLabel syncing={syncing} /> : <span>{syncing ? 'Syncing…' : 'Sync'}</span>}
+            <SyncLabel syncing={syncing} />
           </Button>
 
           {user.picture
@@ -112,11 +120,25 @@ export default function Header({ user, syncing, hasPackages, onSync, onCleanse, 
           <Button
             variant="ghost"
             size="icon"
-            onClick={onCleanse}
+            onClick={handleCleanse}
             aria-label="Reset data"
             className="w-8 h-8 text-muted-foreground hover:text-red-400 hover:bg-red-950"
           >
-            <Trash2 className="w-3.5 h-3.5" aria-hidden />
+            <style>{`
+              @keyframes trashShake {
+                0%,100% { transform: rotate(0deg) scale(1); }
+                15%      { transform: rotate(-15deg) scale(1.2); }
+                30%      { transform: rotate(15deg) scale(1.2); }
+                45%      { transform: rotate(-10deg) scale(1.1); }
+                60%      { transform: rotate(10deg) scale(1.1); }
+                75%      { transform: rotate(-5deg); }
+              }
+            `}</style>
+            <Trash2
+              className="w-3.5 h-3.5"
+              aria-hidden
+              style={shaking ? { animation: 'trashShake 0.6s ease both' } : {}}
+            />
           </Button>
 
           <Button

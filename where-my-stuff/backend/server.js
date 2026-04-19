@@ -164,10 +164,10 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       [userEmail]
     );
 
-    // Re-verify expected_date for all active packages via Haiku (stage 2-4).
+    // Re-verify expected_date for all active packages via Haiku (stage 0-4).
     // This ensures dates are always accurate, even for records synced before the Haiku fix.
     const activePkgs = all(
-      `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 2 AND 4`,
+      `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 0 AND 4`,
       [userEmail]
     );
     for (const pkg of activePkgs) {

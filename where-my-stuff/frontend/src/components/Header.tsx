@@ -9,14 +9,38 @@ const SYNC_VERBS = [
   'Digging…', 'Scanning…', 'Crunching…', 'Sleuthing…', 'Mapping…',
 ];
 
-function useSyncVerb(syncing: boolean) {
+function SyncLabel({ syncing }: { syncing: boolean }) {
   const [idx, setIdx] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+
   useEffect(() => {
     if (!syncing) { setIdx(0); return; }
-    const t = setInterval(() => setIdx(i => (i + 1) % SYNC_VERBS.length), 1000);
+    const t = setInterval(() => {
+      setIdx(i => (i + 1) % SYNC_VERBS.length);
+      setAnimKey(k => k + 1);
+    }, 1400);
     return () => clearInterval(t);
   }, [syncing]);
-  return syncing ? SYNC_VERBS[idx] : 'Sync';
+
+  if (!syncing) return <span>Sync</span>;
+
+  return (
+    <span className="inline-block overflow-hidden h-[1.1em] align-middle" style={{ minWidth: '5rem' }}>
+      <span
+        key={animKey}
+        className="inline-block"
+        style={{ animation: 'tickerUp 0.35s cubic-bezier(0.4,0,0.2,1) both' }}
+      >
+        {SYNC_VERBS[idx]}
+      </span>
+      <style>{`
+        @keyframes tickerUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+      `}</style>
+    </span>
+  );
 }
 
 interface Props {
@@ -40,7 +64,6 @@ function relativeTime(ts: number): string {
 }
 
 export default function Header({ user, syncing, onSync, onCleanse, onLogout, theme, onToggleTheme }: Props) {
-  const syncLabel = useSyncVerb(syncing);
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur border-b border-border" role="banner">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -65,7 +88,7 @@ export default function Header({ user, syncing, onSync, onCleanse, onLogout, the
             aria-label={syncing ? 'Syncing…' : 'Sync Gmail'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} aria-hidden />
-            {syncLabel}
+            <SyncLabel syncing={syncing} />
           </Button>
 
           {user.picture

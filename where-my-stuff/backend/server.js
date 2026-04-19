@@ -135,7 +135,10 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       );
     }
 
-    await run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
+    // Only advance last_sync if we found emails OR a previous sync already ran
+    if (packages.length > 0 || user.last_sync > 0) {
+      await run('UPDATE users SET last_sync = ? WHERE email = ?', [Date.now(), userEmail]);
+    }
 
     // Promote packages whose order/tracking is already manually delivered
     await run(

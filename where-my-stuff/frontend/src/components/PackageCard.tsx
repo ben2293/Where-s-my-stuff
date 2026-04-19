@@ -228,17 +228,19 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         )}
 
         {/* Stage badge top-right */}
-        <div className="absolute top-3 right-3">
-          {isOverdue ? (
-            <Badge className="text-[11px] font-semibold border-0 bg-red-100 text-red-500 dark:bg-red-950/80 dark:text-red-400 gap-1">
-              <AlertCircle className="w-3 h-3" />{countdown!.text}
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[11px] font-semibold border-0" style={{ background: `${color}20`, color }}>
-              {hero}
-            </Badge>
-          )}
-        </div>
+        {(isOverdue || stage !== 0) && (
+          <div className="absolute top-3 right-3">
+            {isOverdue ? (
+              <Badge className="text-[11px] font-semibold border-0 bg-red-100 text-red-500 dark:bg-red-950/80 dark:text-red-400 gap-1">
+                <AlertCircle className="w-3 h-3" />{countdown!.text}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[11px] font-semibold border-0" style={{ background: `${color}20`, color }}>
+                {hero}
+              </Badge>
+            )}
+          </div>
+        )}
 
         {/* Dismiss top-left */}
         <button

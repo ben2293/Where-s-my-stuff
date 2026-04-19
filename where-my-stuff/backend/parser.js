@@ -179,7 +179,7 @@ Return ONLY a JSON array, one object per email, same order:
 Stage: read subject and main body only — ignore nav bars, footers, link text.
 - dispatched: shipped/on its way/arriving soon
 - delivered: actually received by customer
-expectedDate: return as YYYY-MM-DD using the provided Today date to resolve "tomorrow", day names, etc. Return null if not found.
+expectedDate: IMPORTANT — scan the full body for any delivery estimate: "Arriving [day]", "Expected by [date]", "Estimated delivery [date]", "Get it by [date]", "Delivers by [date]". Return as YYYY-MM-DD using the provided Today date to resolve day names and relative dates. Return null only if truly not found.
 Return ONLY the JSON array.`;
 
 async function haikuBatch(emails) {
@@ -189,7 +189,7 @@ async function haikuBatch(emails) {
     `From: ${e.from}`,
     `Subject: ${e.subject}`,
     `Preview: ${e.snippet}`,
-    e.body ? `Body: ${e.body.slice(0, 600)}` : '',
+    e.body ? `Body: ${e.body.slice(0, 2000)}` : '',
     e.orderNumberHint ? `Order hint: ${e.orderNumberHint}` : '',
   ].filter(Boolean).join('\n')).join('\n\n---\n\n');
 

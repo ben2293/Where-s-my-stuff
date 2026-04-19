@@ -189,7 +189,7 @@ async function haikuBatch(emails) {
     `From: ${e.from}`,
     `Subject: ${e.subject}`,
     `Preview: ${e.snippet}`,
-    e.body ? `Body: ${e.body.slice(0, 2000)}` : '',
+    e.body ? `Body: ${e.body.slice(0, 5000)}` : '',
     e.orderNumberHint ? `Order hint: ${e.orderNumberHint}` : '',
   ].filter(Boolean).join('\n')).join('\n\n---\n\n');
 

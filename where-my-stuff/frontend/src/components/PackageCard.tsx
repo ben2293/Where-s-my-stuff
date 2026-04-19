@@ -320,10 +320,12 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         </div>
       )}
 
-      {/* Contextual summary */}
-      <div className="px-6 pb-2 pt-1">
-        <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
-      </div>
+      {/* Contextual summary — skip for stage 0, badge already says it */}
+      {stage !== 0 && (
+        <div className="px-6 pb-2 pt-1">
+          <p className="text-xs text-muted-foreground leading-relaxed">{summary}</p>
+        </div>
+      )}
 
       <div className="px-6 pb-5 flex items-center gap-2 mt-auto">
         <Button variant="outline" size="sm" asChild>

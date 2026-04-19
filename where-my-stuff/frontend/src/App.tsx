@@ -250,6 +250,14 @@ export default function App() {
     });
   }
 
+  async function handleMoveToActive(id: number) {
+    const res = await authFetch(`/api/packages/${id}/stage`, {
+      method: 'PATCH',
+      body: JSON.stringify({ stage: 0 }),
+    });
+    if (res.ok) setPackages(prev => prev.map(p => p.id === id ? { ...p, stage: 0, status: 'Ordered' } : p));
+  }
+
   async function handleDeleteBlock(id: number) {
     await authFetch(`/api/blocks/${id}`, { method: 'DELETE' });
     setBlocks(prev => prev.filter(b => b.id !== id));
@@ -272,7 +280,7 @@ export default function App() {
       <Toaster position="bottom-center" richColors closeButton />
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onCleanse={handleCleanse} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onCleanse={handleCleanse} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} onMoveToActive={handleMoveToActive} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
       }
     </>
   );

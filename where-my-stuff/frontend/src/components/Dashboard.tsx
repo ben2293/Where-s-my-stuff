@@ -22,6 +22,7 @@ interface Props {
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
   onReport: (id: number) => Promise<void>;
+  onMoveToActive: (id: number) => Promise<void>;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   blocks: { id: number; type: string; value: string; reason: string }[];
@@ -158,7 +159,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -393,7 +394,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     </button>
                   </div>
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
-                    {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} />)}
+                    {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
                   {(displayLimit < rest.length || packages.length < pkgTotal) && (
                     <button

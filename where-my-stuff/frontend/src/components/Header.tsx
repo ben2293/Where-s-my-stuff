@@ -31,24 +31,18 @@ export function SyncLabel({ syncing }: { syncing: boolean }) {
           from { transform: translateY(6px); opacity: 0; }
           to   { transform: translateY(0);   opacity: 1; }
         }
-        @keyframes shimmer {
-          0%   { background-position: -200% center; }
-          100% { background-position: 200% center; }
+        @keyframes breathe {
+          0%, 100% { opacity: 0.5; }
+          50%       { opacity: 1;   }
         }
       `}</style>
       <span
         key={animKey}
         style={{
-          animation: 'tickerUp 0.3s cubic-bezier(0.4,0,0.2,1) both',
           display: 'inline-block',
-          background: 'linear-gradient(90deg, currentColor 20%, white 50%, currentColor 80%)',
-          backgroundSize: '200% auto',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          animationName: 'tickerUp, shimmer',
-          animationDuration: '0.3s, 1.4s',
-          animationTimingFunction: 'cubic-bezier(0.4,0,0.2,1), linear',
+          animationName: 'tickerUp, breathe',
+          animationDuration: '0.3s, 1.6s',
+          animationTimingFunction: 'cubic-bezier(0.4,0,0.2,1), ease-in-out',
           animationFillMode: 'both, none',
           animationIterationCount: '1, infinite',
         }}

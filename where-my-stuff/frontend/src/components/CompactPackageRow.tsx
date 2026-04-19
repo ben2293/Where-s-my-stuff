@@ -6,6 +6,7 @@ interface Props {
   pkg: Package;
   onMute: (merchant: string) => void;
   onReport: (id: number) => Promise<void>;
+  onMoveToActive: (id: number) => Promise<void>;
 }
 
 const STAGE_BADGE: Record<number, { label: string; color: string; bg: string }> = {
@@ -69,7 +70,7 @@ function getTitle(pkg: Package): string {
   return `Order from ${pkg.merchant}`;
 }
 
-export default function CompactPackageRow({ pkg, onMute, onReport }: Props) {
+export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActive }: Props) {
   const [open, setOpen]         = useState(false);
   const [copied, setCopied]     = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -172,12 +173,20 @@ export default function CompactPackageRow({ pkg, onMute, onReport }: Props) {
           })()}
 
           <div className="flex items-center justify-between pt-0.5">
-            <button
-              onClick={() => onMute(pkg.merchant)}
-              className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors"
-            >
-              Hide all {pkg.merchant} orders
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onMute(pkg.merchant)}
+                className="text-[11px] text-muted-foreground/40 hover:text-red-400 transition-colors"
+              >
+                Hide all {pkg.merchant} orders
+              </button>
+              <button
+                onClick={() => onMoveToActive(pkg.id)}
+                className="text-[11px] text-muted-foreground/40 hover:text-blue-400 transition-colors"
+              >
+                → Move to active
+              </button>
+            </div>
             <div className="flex items-center gap-3">
               <a
                 href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id || pkg.gmail_message_id}`}

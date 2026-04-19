@@ -340,22 +340,20 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
           </Button>
         )}
         <div className="flex-1" />
-        {pkg.stage > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 hover:border-green-300 hover:text-green-600 dark:hover:bg-green-950 dark:hover:border-green-800 dark:hover:text-green-400"
-            onClick={() => {
-              setDelivering(true);
-              setTimeout(() => setGlow(true), 720);
-              setTimeout(() => setMuting(true), 1050);
-              setTimeout(() => onMarkDelivered(pkg.id), 1330);
-            }}
-          >
-            <Check className="w-3 h-3" />
-            Got it
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          className="hover:bg-green-50 hover:border-green-300 hover:text-green-600 dark:hover:bg-green-950 dark:hover:border-green-800 dark:hover:text-green-400"
+          onClick={() => {
+            setDelivering(true);
+            setTimeout(() => setGlow(true), 720);
+            setTimeout(() => setMuting(true), 1050);
+            setTimeout(() => onMarkDelivered(pkg.id), 1330);
+          }}
+        >
+          <Check className="w-3 h-3" />
+          Got it
+        </Button>
         <Button
           variant="ghost"
           size="sm"

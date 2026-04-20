@@ -272,7 +272,7 @@ async function parseEmailsBatch(emailList) {
         );
         results[idx] = {
           stage, status,
-          merchant: h.merchant || quick_merchant(email.from),
+          merchant: normalizeMerchant(h.merchant || quick_merchant(email.from), email.from),
           carrier: h.carrier || null,
           trackingNumber: h.trackingNumber || null,
           orderNumber: h.orderNumber || email.orderNumberHint || null,
@@ -300,6 +300,13 @@ async function parseEmailsBatch(emailList) {
 function quick_merchant(from) {
   const m = from.match(/@([a-z0-9-]+)\.(in|com)\b/i);
   return m ? (m[1].charAt(0).toUpperCase() + m[1].slice(1)) : 'Unknown';
+}
+
+function normalizeMerchant(name, from) {
+  // Let regex-based detection win for known senders — Haiku sometimes returns "Amazon.in" etc.
+  const detected = detectMerchant(from);
+  if (detected) return detected;
+  return name;
 }
 
 // Single-email interface for resync

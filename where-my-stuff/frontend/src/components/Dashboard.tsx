@@ -96,7 +96,7 @@ function deduplicate(pkgs: Package[]): Package[] {
   for (const pkg of pkgs) {
     const orderId = extractOrderId(pkg);
     const key = orderId
-      ? `ord:${pkg.merchant}:${orderId}`
+      ? `ord:${orderId}`
       : pkg.tracking_number
       ? `trk:${pkg.tracking_number.trim()}`
       : pkg.thread_id

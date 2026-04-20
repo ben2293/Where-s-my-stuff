@@ -357,8 +357,10 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
             )}
           </div>
         ) : (() => {
-          const active = filtered.filter(p => p.stage >= 0 && p.stage <= 4);
-          const rest   = filtered.filter(p => p.stage < 0 || p.stage > 4)
+          const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+          const isDeliveredToday = (p: Package) => p.stage === 5 && (p.updated_at * 1000) >= todayStart.getTime();
+          const active = filtered.filter(p => (p.stage >= 0 && p.stage <= 4) || isDeliveredToday(p));
+          const rest   = filtered.filter(p => !active.includes(p))
             .sort((a, b) => sortOrder === 'newest'
               ? b.received_date - a.received_date
               : a.received_date - b.received_date);

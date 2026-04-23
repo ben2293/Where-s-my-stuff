@@ -118,34 +118,17 @@ const DELIVERY_QUERY = [
   'from:@shadowfax.in',
   'from:@ecomexpress.in',
   'from:@shiprocket.in',
-  // Subject keywords — catches D2C brands (Marchtee etc.) not in sender list
-  // Shipping / transit states
+  // Broad subject keywords — cast a wide net, Haiku filters false positives
+  'subject:order',
+  'subject:purchase',
+  'subject:confirmed',
   'subject:shipped',
   'subject:dispatched',
   'subject:delivered',
   'subject:delivery',
   'subject:shipment',
-  'subject:"out for delivery"',
-  'subject:"in transit"',
-  'subject:"on its way"',
-  'subject:"arriving today"',
-  'subject:"arriving tomorrow"',
-  // Order confirmation phrases — all common permutations
-  'subject:"order confirmed"',
-  'subject:"order confirmation"',   // Shopify default, very common
-  'subject:"order placed"',
-  'subject:"order received"',
-  'subject:"order summary"',
-  'subject:"order details"',
-  'subject:"order update"',
-  'subject:"confirmed order"',
-  'subject:"your order"',           // matches "Your order from X", "Your order #123"
-  'subject:ordered',                // matches "You ordered:", "Thanks for ordering"
-  // Misc
   'subject:tracking',
   'subject:invoice',
-  'subject:"your package"',
-  'subject:"your shipment"',
 ].join(' OR ');
 
 function createOAuthClient() {
@@ -382,19 +365,31 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   }));
   const parsed = await parseEmailsBatch(parseInputs);
 
+  // Strong order signals in subject/snippet — last-chance pass for unknown senders
+  const STRONG_ORDER_RE = [
+    /#[A-Z0-9]{3,12}\b/i,                                                    // any #XXXXX in subject
+    /\border\s*#/i,                                                           // "order #"
+    /\b(?:order|booking|purchase)\s+(?:confirmed|placed|received|summary)/i, // explicit confirmation phrase
+    /thank(?:s| you)\s+for\s+(?:your\s+)?(?:order|purchase)/i,               // "thank you for your purchase"
+    /we(?:'re| are) (?:getting|preparing) (?:your )?order/i,                 // "we're getting your order ready"
+  ];
+  const hasStrongOrderSignal = (r, body = '') =>
+    STRONG_ORDER_RE.some(re => re.test(`${r.subject} ${r.snippet} ${body.slice(0, 2000)}`));
+
   // Step 3: assemble results and apply sender-based stage floors
-  const isDelivery = r =>
+  const isDelivery = (r, body = '') =>
     TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
     r.trackingNumber ||
     (r.orderNumber && r.orderNumber.length >= 6) ||
-    r.stage > 0;
+    r.stage > 0 ||
+    hasStrongOrderSignal(r, body);
 
   const results = rawEmails.map((e, i) => {
     const p = parsed[i];
     if (!p) return null;
     const stageFloor = SENDER_STAGE_FLOOR[e.fromEmail] ?? -1;
     if (stageFloor > p.stage) { p.stage = stageFloor; p.status = SENDER_STATUS_FLOOR[e.fromEmail]; }
-    return {
+    const r = {
       gmail_message_id: e.id,
       thread_id: e.thread_id,
       from_address: e.fromEmail,
@@ -405,7 +400,8 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
       snippet: e.snippet.slice(0, 500),
       received_date: e.dateStr ? new Date(e.dateStr).getTime() : Date.now(),
     };
-  }).filter(r => r && isDelivery(r));
+    return isDelivery(r, e.body) ? r : null;
+  }).filter(Boolean);
 
   return { packages: results, freshAccessToken };
 }

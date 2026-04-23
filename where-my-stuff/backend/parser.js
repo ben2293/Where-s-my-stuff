@@ -69,7 +69,7 @@ const STAGE_PATTERNS = [
   { stage: 3, status: 'In Transit',        patterns: [/in[\s-]transit/i, /reached .{0,25}(?:facility|hub|center)/i, /at .{0,25}sorting/i, /departed from .{0,25}(?:facility|hub)/i] },
   { stage: 2, status: 'Dispatched',        patterns: [/\bshipped\b/i, /\bdispatched\b/i, /\barriving\b/i, /has been shipped/i, /order (?:is )?on its way/i, /order shipped/i, /(?:awb|waybill)[:\s#]+[A-Z0-9]/i] },
   { stage: 1, status: 'Processing',        patterns: [/being packed/i, /preparing (?:your )?order/i, /getting (?:your order|it) ready/i, /ready to ship/i] },
-  { stage: 0, status: 'Ordered',            patterns: [/order (?:is )?confirmed/i, /order (?:has been )?placed/i, /thank(?:s| you) for (?:your )?order/i, /payment (?:received|confirmed|successful)/i] },
+  { stage: 0, status: 'Ordered',            patterns: [/order\s*(?:#[A-Z0-9\-]{2,12}\s+)?(?:is\s+)?confirmed/i, /order (?:has been )?placed/i, /thank(?:s| you) for (?:your )?(?:order|purchase)/i, /payment (?:received|confirmed|successful)/i] },
 ];
 
 function detectStage(text) {

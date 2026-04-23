@@ -96,16 +96,18 @@ const MERCHANT_FROM = [
   { name: 'Delhivery',       re: /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i },
   { name: 'BlueDart',        re: /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i },
   { name: 'Apple',           re: /@(?:[a-z0-9-]+\.)?apple\.com\b/i },
+  { name: 'Raspberry Pi',    re: /@(?:[a-z0-9-]+\.)?raspberrypi\.(?:com|org)\b/i },
+  { name: 'Shopify',         re: /@(?:[a-z0-9-]+\.)?shopifyemail\.com\b/i },
 ];
 
 function detectMerchant(from) {
   for (const { name, re } of MERCHANT_FROM) {
     if (re.test(from)) return name;
   }
-  const m = from.match(/@([a-z0-9-]+)\.(in|com)\b/i);
+  const m = from.match(/@(?:[a-z0-9-]+\.)*([a-z0-9-]+)\.(?:in|com|org|co|net|io|store|shop)\b/i);
   if (!m) return null;
   const domain = m[1];
-  if (['gmail','yahoo','outlook','hotmail','icloud'].includes(domain)) return null;
+  if (['gmail','yahoo','outlook','hotmail','icloud','mail','info','noreply','t','mg','em','send'].includes(domain)) return null;
   return domain.charAt(0).toUpperCase() + domain.slice(1);
 }
 
@@ -300,8 +302,11 @@ async function parseEmailsBatch(emailList) {
 }
 
 function quick_merchant(from) {
-  const m = from.match(/@([a-z0-9-]+)\.(in|com)\b/i);
-  return m ? (m[1].charAt(0).toUpperCase() + m[1].slice(1)) : 'Unknown';
+  const m = from.match(/@(?:[a-z0-9-]+\.)*([a-z0-9-]+)\.(?:in|com|org|co|net|io|store|shop)\b/i);
+  if (!m) return 'Unknown';
+  const d = m[1];
+  if (['gmail','yahoo','outlook','hotmail','icloud','mail','info','noreply','t','mg','em','send'].includes(d)) return 'Unknown';
+  return d.charAt(0).toUpperCase() + d.slice(1);
 }
 
 function normalizeMerchant(name, from) {

@@ -175,11 +175,12 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
 
   const stage    = Math.min(pkg.stage, 8);
   const color    = STAGE_COLOR[stage];
-  const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
+  const emoji    = MERCHANT_EMOJI[pkg.merchant] ?? MERCHANT_EMOJI[displayMerchant] ?? '📦';
   const hero     = HERO[stage] ?? pkg.status;
   const summary  = stageSummary(stage, pkg.carrier, pkg.subject, `${pkg.snippet ?? ''} ${pkg.merchant}`);
   const title    = getTitle(pkg);
-  const titleLine = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
+  const displayMerchant = (pkg.merchant === 'Unknown' && pkg.product_name) ? pkg.product_name : pkg.merchant;
+  const titleLine = pkg.carrier ? `${displayMerchant} · ${pkg.carrier}` : displayMerchant;
   const hasImage = !!(pkg.image_url && imgOk);
   const trackUrl = trackingUrl(pkg.carrier, pkg.tracking_number);
 

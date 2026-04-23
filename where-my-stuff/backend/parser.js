@@ -177,12 +177,13 @@ function isResolved({ stageResult, merchant, trackingNumber, orderNumber }) {
 const HAIKU_SYSTEM = `You are a delivery email parser. You receive emails numbered [1], [2], etc.
 Each email starts with "Today: YYYY-MM-DD" — use this to resolve relative dates.
 Return ONLY a JSON array, one object per email, same order:
-[{"stage":"order_confirmed"|"processing"|"dispatched"|"in_transit"|"out_for_delivery"|"delivered"|"failed"|"return_initiated"|"returned","merchant":string,"carrier":string|null,"orderNumber":string|null,"trackingNumber":string|null,"expectedDate":string|null}]
+[{"stage":"order_confirmed"|"processing"|"dispatched"|"in_transit"|"out_for_delivery"|"delivered"|"failed"|"return_initiated"|"returned","merchant":string,"carrier":string|null,"orderNumber":string|null,"trackingNumber":string|null,"expectedDate":string|null,"productName":string|null}]
 
 Stage: read subject and main body only — ignore nav bars, footers, link text.
 - dispatched: shipped/on its way/arriving soon
 - delivered: actually received by customer
 expectedDate: IMPORTANT — scan the full body for any delivery estimate: "Arriving [day]", "Expected by [date]", "Estimated delivery [date]", "Get it by [date]", "Delivers by [date]". Return as YYYY-MM-DD using the provided Today date to resolve day names and relative dates. Return null only if truly not found.
+productName: the main product ordered (e.g. "Raspberry Pi Zero 2W", "Nike Air Max 90"). Use the order summary/line items in the body. If multiple items, name the first or most prominent. Return null only if truly not found.
 Return ONLY the JSON array.`;
 
 async function haikuBatch(emails) {
@@ -277,6 +278,7 @@ async function parseEmailsBatch(emailList) {
           trackingNumber: h.trackingNumber || null,
           orderNumber: h.orderNumber || email.orderNumberHint || null,
           expectedDate,
+          productName: h.productName || null,
         };
       } else {
         // Haiku failed — best-effort fallback

@@ -48,6 +48,7 @@ async function getDb() {
       image_url TEXT,
       price INTEGER,
       expected_date TEXT,
+      product_name TEXT,
       manually_delivered INTEGER DEFAULT 0,
       updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
       UNIQUE(user_email, gmail_message_id)
@@ -65,6 +66,7 @@ async function getDb() {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date)`);
+  await pool.query(`ALTER TABLE packages ADD COLUMN IF NOT EXISTS product_name TEXT`);
   return pool;
 }
 

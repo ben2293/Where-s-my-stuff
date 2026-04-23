@@ -22,6 +22,7 @@ export interface Package {
   image_url?: string | null;
   price?: number | null;
   expected_date?: string | null;
+  product_name?: string | null;
   updated_at: number;
 }
 

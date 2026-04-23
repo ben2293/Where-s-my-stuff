@@ -116,8 +116,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       await run(
         `INSERT INTO packages
            (user_email, gmail_message_id, thread_id, from_address, merchant, carrier, tracking_number,
-            order_number, status, stage, subject, received_date, snippet, image_url, price, expected_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            order_number, status, stage, subject, received_date, snippet, image_url, price, expected_date, product_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
            stage=CASE WHEN excluded.stage>=7 THEN GREATEST(excluded.stage,packages.stage) WHEN packages.stage>=7 THEN packages.stage WHEN packages.manually_delivered=1 AND packages.stage>=5 THEN packages.stage ELSE GREATEST(excluded.stage,packages.stage) END,
@@ -128,10 +128,12 @@ app.post('/api/sync', requireAuth, async (req, res) => {
            price=COALESCE(excluded.price, packages.price),
            order_number=COALESCE(excluded.order_number, packages.order_number),
            expected_date=COALESCE(excluded.expected_date, packages.expected_date),
+           product_name=COALESCE(excluded.product_name, packages.product_name),
            updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT`,
         [userEmail, p.gmail_message_id, p.thread_id || null, p.from_address || null,
          p.merchant, p.carrier, p.trackingNumber, p.orderNumber || null, p.status, p.stage,
-         p.subject, p.received_date, p.snippet, p.image_url || null, p.price || null, p.expectedDate || null]
+         p.subject, p.received_date, p.snippet, p.image_url || null, p.price || null, p.expectedDate || null,
+         p.productName || null]
       );
     }
 
@@ -227,11 +229,12 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
            expected_date=COALESCE(?, expected_date),
            image_url=COALESCE(?, image_url),
            price=COALESCE(?, price),
+           product_name=COALESCE(?, product_name),
            updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT
          WHERE id=?`,
         [p.merchant, p.carrier, p.stage, p.status,
          p.trackingNumber, p.orderNumber, p.expectedDate,
-         p.image_url, p.price, id]
+         p.image_url, p.price, p.productName || null, id]
       );
     }
     res.json({ success: true, package: await get('SELECT * FROM packages WHERE id = ?', [id]) });

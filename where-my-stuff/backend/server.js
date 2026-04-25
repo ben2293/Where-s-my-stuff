@@ -4,7 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { getDb, get, all, run } = require('./db');
 const { getAuthUrl, exchangeCode, syncGmail, resyncPackage } = require('./gmail');
-const { extractExpectedDate } = require('./parser');
+const { extractExpectedDate, deepEnrichEmail } = require('./parser');
 
 const app = express();
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -213,7 +213,7 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
   const user = req.user;
   if (!user?.access_token) return res.status(401).json({ error: 'No Gmail access' });
   try {
-    const { package: p, freshAccessToken } = await resyncPackage(
+    const { package: p, freshAccessToken, body: resyncBody } = await resyncPackage(
       { access_token: user.access_token, refresh_token: user.refresh_token },
       pkg
     );
@@ -237,6 +237,33 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
          p.image_url, p.price, p.productName || null, id]
       );
     }
+
+    // Deep Haiku enrichment — extract product name + real store name from full email body
+    if (resyncBody) {
+      const enriched = await deepEnrichEmail({
+        from: pkg.from_address || '',
+        subject: (p?.subject) || pkg.subject || '',
+        snippet: pkg.snippet || '',
+        body: resyncBody,
+      }).catch(() => null);
+      if (enriched) {
+        const PLATFORM_RE = /^(shopify|unknown|woocommerce)$/i;
+        const newProductName = enriched.productName || null;
+        const newMerchant = (enriched.storeName && PLATFORM_RE.test(pkg.merchant))
+          ? enriched.storeName : null;
+        if (newProductName || newMerchant) {
+          await run(
+            `UPDATE packages SET
+               product_name=COALESCE(?,product_name),
+               merchant=COALESCE(?,merchant),
+               updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT
+             WHERE id=?`,
+            [newProductName, newMerchant, id]
+          );
+        }
+      }
+    }
+
     res.json({ success: true, package: await get('SELECT * FROM packages WHERE id = ?', [id]) });
   } catch (e) {
     console.error('Resync error:', e.message);

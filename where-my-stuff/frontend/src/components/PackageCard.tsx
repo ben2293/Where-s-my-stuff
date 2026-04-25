@@ -258,7 +258,11 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <CardTitle className="text-base leading-tight truncate">{titleLine}</CardTitle>
-            {title && !title.startsWith('Order #') && <CardDescription className="mt-0.5 text-xs truncate">{title}</CardDescription>}
+            {(pkg.product_name || (title && !title.startsWith('Order #'))) && (
+              <CardDescription className="mt-0.5 text-xs truncate">
+                {pkg.product_name || title}
+              </CardDescription>
+            )}
           </div>
           {pkg.price != null && (
             <span className="text-sm font-bold text-foreground whitespace-nowrap flex-shrink-0">

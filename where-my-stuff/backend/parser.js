@@ -322,4 +322,35 @@ async function parseEmail(email) {
   return results[0];
 }
 
-module.exports = { parseEmail, parseEmailsBatch, extractExpectedDate };
+// Deep enrichment — called only on manual refresh, uses full body to extract
+// the actual product name and store name (for platform senders like Shopify).
+const DEEP_ENRICH_SYSTEM = `Extract details from this order confirmation email.
+Return ONLY valid JSON: {"productName":string|null,"storeName":string|null}
+productName: the specific product ordered (e.g. "Raspberry Pi Zero 2W", "2x20 Male Header Pins", "Nike Air Max 90"). Read order line items or product title in the body. First/most prominent if multiple. null if truly absent.
+storeName: the actual brand or store name when the sender is a platform like Shopify (look for the store name in the email sender display name, greeting, header image alt text, or footer). Return null for well-known marketplaces (Amazon, Flipkart, Myntra, Nykaa, etc.) — only return a value for independent/D2C stores.
+Return ONLY the JSON object, no other text.`;
+
+async function deepEnrichEmail({ from, subject, snippet, body }) {
+  const prompt = [
+    `From: ${from}`,
+    `Subject: ${subject}`,
+    snippet ? `Preview: ${snippet}` : '',
+    body ? `Body: ${body.slice(0, 6000)}` : '',
+  ].filter(Boolean).join('\n');
+
+  try {
+    const res = await getClient().messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      system: DEEP_ENRICH_SYSTEM,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const raw = res.content[0].text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '');
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error('[parser] deepEnrich error:', e.message);
+    return null;
+  }
+}
+
+module.exports = { parseEmail, parseEmailsBatch, extractExpectedDate, deepEnrichEmail };

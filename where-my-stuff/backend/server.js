@@ -164,14 +164,6 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       [userEmail, userEmail, userEmail, userEmail]
     );
 
-    // Remove garbage stage-0 entries with no tracking and no valid order number
-    await run(
-      `DELETE FROM packages WHERE user_email = ? AND stage = 0
-       AND (tracking_number IS NULL OR tracking_number = '')
-       AND (order_number IS NULL OR order_number = '' OR LENGTH(order_number) < 3)`,
-      [userEmail]
-    );
-
     // Re-verify expected_date for active packages missing it
     const activePkgs = await all(
       `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 0 AND 4 AND expected_date IS NULL`,

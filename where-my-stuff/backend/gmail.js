@@ -396,13 +396,24 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
         const subject = h('Subject');
         const dateStr = h('Date');
         const snippet = decodeEntities(msg.data.snippet || '');
-        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from)) && !isPlausibleDelivery(subject, snippet)) return null;
-        if (isUserBlocked(from, subject, userBlocks)) return null;
+        const hasListUnsub = !!h('List-Unsubscribe');
+        const fromEmail = extractEmail(from);
+        const knownSender = isKnownDeliverySender(fromEmail);
+        const plausible = isPlausibleDelivery(subject, snippet);
+        if (hasListUnsub && !knownSender && !plausible) {
+          console.log(`[sync] PRE-FILTER REJECT: "${subject.slice(0,60)}" from=${fromEmail} hasLU=${hasListUnsub} known=${knownSender} plausible=${plausible}`);
+          return null;
+        }
+        if (isUserBlocked(from, subject, userBlocks)) {
+          console.log(`[sync] USER BLOCKED: "${subject.slice(0,60)}" from=${fromEmail}`);
+          return null;
+        }
         const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+        console.log(`[sync] PRE-FILTER PASS: "${subject.slice(0,60)}" from=${fromEmail} hasLU=${hasListUnsub} known=${knownSender} plausible=${plausible}`);
         return {
           id, from, subject, snippet, body, imageUrl, price, orderNumberHint,
           thread_id: msg.data.threadId || null,
-          fromEmail: extractEmail(from),
+          fromEmail,
           dateStr,
         };
       } catch { return null; }
@@ -419,17 +430,22 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   const parsed = await parseEmailsBatch(parseInputs);
 
   // Step 3: assemble results and apply sender-based stage floors
-  const isDelivery = (r, body = '') =>
-    TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
-    r.trackingNumber ||
-    (r.orderNumber && r.orderNumber.length >= 3) ||
-    r.stage > 0 ||
-    (r.stage === 0 && r.orderNumber) ||
-    isDeliveryEmail(r.subject, r.snippet, body);
+  const isDelivery = (r, body = '') => {
+    if (TRUSTED_DELIVERY_SENDERS.has(r.from_address)) return true;
+    if (r.trackingNumber) return true;
+    if (r.orderNumber && r.orderNumber.length >= 3) return true;
+    if (r.stage > 0) return true;
+    if (r.stage === 0 && r.orderNumber) return true;
+    if (isDeliveryEmail(r.subject, r.snippet, body)) return true;
+    return false;
+  };
 
   const results = rawEmails.map((e, i) => {
     const p = parsed[i];
-    if (!p) return null;
+    if (!p) {
+      console.log(`[sync] PARSE FAILED: "${e.subject.slice(0,60)}"`);
+      return null;
+    }
     const stageFloor = SENDER_STAGE_FLOOR[e.fromEmail] ?? -1;
     if (stageFloor > p.stage) { p.stage = stageFloor; p.status = SENDER_STATUS_FLOOR[e.fromEmail]; }
     const r = {
@@ -443,9 +459,12 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
       snippet: e.snippet.slice(0, 500),
       received_date: e.dateStr ? new Date(e.dateStr).getTime() : Date.now(),
     };
-    return isDelivery(r, e.body) ? r : null;
+    const pass = isDelivery(r, e.body);
+    console.log(`[sync] isDelivery=${pass} stage=${r.stage} order=${r.orderNumber} track=${r.trackingNumber} subject="${r.subject.slice(0,60)}"`);
+    return pass ? r : null;
   }).filter(Boolean);
 
+  console.log(`[sync] RESULTS: ${results.length} packages kept out of ${rawEmails.length} raw emails`);
   return { packages: results, freshAccessToken };
 }
 

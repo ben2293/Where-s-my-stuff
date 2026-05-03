@@ -16,6 +16,7 @@ const KNOWN_DELIVERY_DOMAINS = new Set([
   'snapdeal.com', 'tatacliq.com', 'mamaearth.in',
   'delhivery.com', 'bluedart.com', 'dtdc.in', 'dtdc.com', 'xpressbees.com',
   'shadowfax.in', 'ecomexpress.in', 'shiprocket.in',
+  'lagavi.in', 'lagavi.com',
 ]);
 
 function isKnownDeliverySender(email) {
@@ -342,7 +343,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
         const from = h('From');
         const subject = h('Subject');
         const dateStr = h('Date');
-        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) return null;
+        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from)) && !hasStrongOrderSignal({ subject, snippet: '' })) return null;
         if (isUserBlocked(from, subject, userBlocks)) return null;
         const snippet = decodeEntities(msg.data.snippet || '');
         const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);

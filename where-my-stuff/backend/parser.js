@@ -133,9 +133,9 @@ function extractTracking(text) {
 function extractOrderNumber(text, hint) {
   const amazon = text.match(/\b(\d{3}-\d{7}-\d{7})\b/);
   if (amazon) return amazon[1];
-  const kw = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:(?:number|no|id|ref(?:erence)?)[\s#:./-]+)?([A-Z0-9]{5,20})\b/i);
+  const kw = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:(?:number|no|id|ref(?:erence)?)[\s#:./-]+)?([A-Z0-9]{3,20})\b/i);
   if (kw && !/^(confirmed|placed|received|shipped|dispatched|delivered|update)$/i.test(kw[1])) return kw[1];
-  const hash = text.match(/#([A-Z0-9]{6,20})\b/i);
+  const hash = text.match(/#([A-Z0-9]{3,20})\b/i);
   if (hash) return hash[1];
   return hint || null;
 }

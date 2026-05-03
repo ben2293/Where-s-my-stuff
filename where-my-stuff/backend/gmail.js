@@ -301,6 +301,57 @@ function isUserBlocked(from, subject, userBlocks) {
   return false;
 }
 
+// ─── Delivery signal detection ──────────────────────────────────────────────
+// Instead of brittle regexes, we count tokens in two buckets:
+//   - ecommerce: signals a transaction happened (order, purchase, confirmed, etc.)
+//   - logistics: signals something is being moved (shipped, tracking, delivery, etc.)
+//
+// An email is "delivery-related" if it has meaningful vocabulary from at least
+// one bucket. This catches unknown D2C brands, Shopify stores, and indie
+// sellers without whitelisting domains or pattern-matching subject lines.
+
+const ECOMM_TOKENS = [
+  'order', 'purchase', 'confirmed', 'placed', 'receipt', 'invoice',
+  'total', 'amount', 'paid', 'billing address', 'shipping address',
+  'subtotal', 'discount', 'cart', 'checkout', 'order summary',
+];
+
+const LOGISTICS_TOKENS = [
+  'shipped', 'dispatched', 'delivered', 'delivery', 'tracking',
+  'shipment', 'awb', 'waybill', 'courier', 'out for delivery',
+  'in transit', 'arriving', 'expected by', 'estimated delivery',
+  'rto', 'return to origin', 'pickup scheduled',
+];
+
+function countTokens(text, tokens) {
+  const t = ` ${text.toLowerCase()} `;
+  let count = 0;
+  for (const tok of tokens) {
+    if (t.includes(` ${tok} `)) count++;
+  }
+  return count;
+}
+
+// Pre-body filter: subject + snippet only. We need at least 2 hits from either
+// bucket to keep an email for further parsing. This is lenient because the
+// Gmail query already narrowed the set.
+function isPlausibleDelivery(subject = '', snippet = '') {
+  const text = `${subject} ${snippet}`;
+  const ecom = countTokens(text, ECOMM_TOKENS);
+  const logi = countTokens(text, LOGISTICS_TOKENS);
+  return (ecom >= 2) || (logi >= 1) || (ecom >= 1 && logi >= 1);
+}
+
+// Post-body filter: full text. Same buckets, same thresholds, but with body
+// content included so compound phrases like "shipping address" or
+// "out for delivery" actually match.
+function isDeliveryEmail(subject = '', snippet = '', body = '') {
+  const text = `${subject} ${snippet} ${body.slice(0, 3000)}`;
+  const ecom = countTokens(text, ECOMM_TOKENS);
+  const logi = countTokens(text, LOGISTICS_TOKENS);
+  return (ecom >= 2) || (logi >= 2) || (ecom >= 1 && logi >= 1);
+}
+
 async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   const client = createOAuthClient();
   client.setCredentials({
@@ -343,9 +394,9 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
         const from = h('From');
         const subject = h('Subject');
         const dateStr = h('Date');
-        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from)) && !hasStrongOrderSignal({ subject, snippet: '' })) return null;
-        if (isUserBlocked(from, subject, userBlocks)) return null;
         const snippet = decodeEntities(msg.data.snippet || '');
+        if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from)) && !isPlausibleDelivery(subject, snippet)) return null;
+        if (isUserBlocked(from, subject, userBlocks)) return null;
         const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
         return {
           id, from, subject, snippet, body, imageUrl, price, orderNumberHint,
@@ -366,24 +417,14 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   }));
   const parsed = await parseEmailsBatch(parseInputs);
 
-  // Strong order signals in subject/snippet — last-chance pass for unknown senders
-  const STRONG_ORDER_RE = [
-    /#[A-Z0-9]{3,12}\b/i,                                                    // any #XXXXX in subject
-    /\border\s*#/i,                                                           // "order #"
-    /\b(?:order|booking|purchase)\s+(?:confirmed|placed|received|summary)/i, // explicit confirmation phrase
-    /thank(?:s| you)\s+for\s+(?:your\s+)?(?:order|purchase)/i,               // "thank you for your purchase"
-    /we(?:'re| are) (?:getting|preparing) (?:your )?order/i,                 // "we're getting your order ready"
-  ];
-  const hasStrongOrderSignal = (r, body = '') =>
-    STRONG_ORDER_RE.some(re => re.test(`${r.subject} ${r.snippet} ${body.slice(0, 2000)}`));
-
   // Step 3: assemble results and apply sender-based stage floors
   const isDelivery = (r, body = '') =>
     TRUSTED_DELIVERY_SENDERS.has(r.from_address) ||
     r.trackingNumber ||
-    (r.orderNumber && r.orderNumber.length >= 6) ||
+    (r.orderNumber && r.orderNumber.length >= 3) ||
     r.stage > 0 ||
-    hasStrongOrderSignal(r, body);
+    (r.stage === 0 && r.orderNumber) ||
+    isDeliveryEmail(r.subject, r.snippet, body);
 
   const results = rawEmails.map((e, i) => {
     const p = parsed[i];
@@ -442,8 +483,12 @@ async function resyncPackage(userTokens, pkg) {
       const from = h('From');
       const subject = h('Subject');
       const dateStr = h('Date');
-      if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) continue;
       const snippet = decodeEntities(msg.data.snippet || '');
+      // Resync searches by thread_id or tracking/order number — emails are already
+      // strongly correlated. Only skip unknown senders if there's zero delivery signal.
+      if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) {
+        if (!isPlausibleDelivery(subject, snippet)) continue;
+      }
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
       const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() });
       const fromEmail = extractEmail(from);

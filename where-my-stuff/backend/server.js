@@ -168,7 +168,7 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     await run(
       `DELETE FROM packages WHERE user_email = ? AND stage = 0
        AND (tracking_number IS NULL OR tracking_number = '')
-       AND (order_number IS NULL OR order_number = '' OR LENGTH(order_number) < 6)`,
+       AND (order_number IS NULL OR order_number = '' OR LENGTH(order_number) < 3)`,
       [userEmail]
     );
 

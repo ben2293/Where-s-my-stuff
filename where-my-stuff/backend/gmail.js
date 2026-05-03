@@ -430,7 +430,14 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   const parsed = await parseEmailsBatch(parseInputs);
 
   // Step 3: assemble results and apply sender-based stage floors
+  // REQUIREMENT: every package MUST have an order number OR tracking number.
+  // This filters out promotional emails, social notifications, and deal spam
+  // that happen to contain e-commerce vocabulary.
+  const hasIdentifier = (r) =>
+    !!r.trackingNumber || !!(r.orderNumber && r.orderNumber.length >= 3);
+
   const isDelivery = (r, body = '') => {
+    if (!hasIdentifier(r)) return false;
     if (TRUSTED_DELIVERY_SENDERS.has(r.from_address)) return true;
     if (r.trackingNumber) return true;
     if (r.orderNumber && r.orderNumber.length >= 3) return true;

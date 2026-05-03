@@ -196,7 +196,9 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
     if (blacklist.has(p.merchant)) return false;
     const hasOrderId = p.order_number && !ORDER_BLACKLIST.test(p.order_number);
     const hasTracking = !!p.tracking_number;
-    if (!hasOrderId && !hasTracking && p.stage >= 1 && p.stage <= 4) return false;
+    // Every package must have an order number or tracking number, regardless of stage.
+    // This filters out promotional emails, social notifications, and deal spam.
+    if (!hasOrderId && !hasTracking) return false;
     return true;
   }), [source, blacklist]);
 

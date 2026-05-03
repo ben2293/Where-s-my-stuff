@@ -324,7 +324,8 @@ const LOGISTICS_TOKENS = [
 ];
 
 function countTokens(text, tokens) {
-  const t = ` ${text.toLowerCase()} `;
+  // Strip punctuation so "confirmed." and "confirmed" both match
+  const t = ` ${text.toLowerCase().replace(/[.,!?:;()\[\]{}"'\-_#@$%&*+=|/\\<>~`]+/g, ' ')} `;
   let count = 0;
   for (const tok of tokens) {
     if (t.includes(` ${tok} `)) count++;

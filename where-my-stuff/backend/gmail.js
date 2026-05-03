@@ -185,17 +185,32 @@ function extractProductImage(html) {
     if (!srcM) continue;
     const src = srcM[1];
     if (!src.startsWith('http')) continue;
+
     // Skip obvious non-product images
-    if (/pixel|beacon|track(er)?|open\?|spacer|logo|icon|avatar|signature|divider|border|bg|background|separator|blank|clear\.gif|arrow|bullet/i.test(src)) continue;
+    if (/pixel|beacon|track(er)?|open\?|spacer|icon|avatar|signature|divider|border|bg|background|separator|blank|clear\.gif|arrow|bullet/i.test(src)) continue;
+
+    // Check alt text for logo indicators
+    const altM = tag.match(/alt=["']([^"']*)["']/i);
+    const alt = altM ? altM[1].toLowerCase() : '';
+    if (alt.includes('logo') || alt === 'brand' || alt === 'store') continue;
+
     // Skip data URIs and tiny tracking pixels
     const wM = tag.match(/width=["']?(\d+)/i);
     const hM = tag.match(/height=["']?(\d+)/i);
     const w = wM ? parseInt(wM[1]) : 999;
     const h = hM ? parseInt(hM[1]) : 999;
     if (w < 60 || h < 60) continue;
-    candidates.push({ src, w, h, score: w * h });
+
+    // Skip extreme aspect ratios — logos are typically very wide or very tall
+    const aspect = w / h;
+    if (aspect > 4 || aspect < 0.25) continue;
+
+    // Score: prefer square-ish product photos (aspect near 1.0)
+    const aspectScore = 1 - Math.min(Math.abs(aspect - 1), 1);
+    candidates.push({ src, w, h, score: w * h * (1 + aspectScore) });
   }
   if (!candidates.length) return null;
+
   // Prefer known product CDNs (ranked)
   const CDN_PRIORITY = [
     // Amazon
@@ -219,10 +234,15 @@ function extractProductImage(html) {
     /(?:^|\.)(?:images?|img|cdn|static|media|assets)\./i,
   ];
   for (const pattern of CDN_PRIORITY) {
-    const match = candidates.find(c => pattern.test(c.src));
-    if (match) return match.src;
+    // Among matching CDN images, pick the one with highest score (size + aspect)
+    const matches = candidates.filter(c => pattern.test(c.src));
+    if (matches.length) {
+      matches.sort((a, b) => b.score - a.score);
+      return matches[0].src;
+    }
   }
-  // Largest image otherwise
+
+  // Largest + most square image otherwise
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0].src;
 }

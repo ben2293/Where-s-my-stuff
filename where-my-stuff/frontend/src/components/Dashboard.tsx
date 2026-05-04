@@ -84,11 +84,13 @@ function mergeGroup(group: Package[]): Package {
   const winner = group.reduce((best, p) =>
     p.stage > best.stage || (p.stage === best.stage && p.received_date > best.received_date) ? p : best
   );
+  // "Ordered" date should be the EARLIEST email (order confirmation), not the latest status update
+  const earliestDate = group.reduce((min, p) => p.received_date < min ? p.received_date : min, group[0].received_date);
   const bestSubject = group.slice().sort((a, b) => subjectScore(b.subject) - subjectScore(a.subject))[0].subject;
   const bestImage = group.find(p => p.image_url)?.image_url ?? null;
   const bestPrice = group.find(p => p.price)?.price ?? null;
   const bestExpected = group.find(p => p.expected_date)?.expected_date ?? null;
-  return { ...winner, subject: bestSubject, image_url: bestImage, price: bestPrice, expected_date: bestExpected };
+  return { ...winner, received_date: earliestDate, subject: bestSubject, image_url: bestImage, price: bestPrice, expected_date: bestExpected };
 }
 
 function deduplicate(pkgs: Package[]): Package[] {

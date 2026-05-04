@@ -122,11 +122,23 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     for (let i = 0; i < packages.length; i++) {
       const p = packages[i];
       try {
-        // Only enrich active packages (stage 0-4) with searchable identifiers.
-        // Delivered/failed packages (stage 5+) are done — no enrichment needed.
-        // Packages without order or tracking number can't be searched by identifier.
+        // SMARTER ENRICHMENT: only chase the order number when the initial
+        // parse is weak. Strong signals (tracking, dispatched/delivered, known
+        // carrier) mean the package is already well-classified.
+        //
+        // Weak signals that justify enrichment:
+        //   - Stage 0 (ordered) with no tracking or carrier — just an order #
+        //   - No order number and no tracking number — can't search anyway
+        //
+        // Skip enrichment when:
+        //   - Already stage 5+ (delivered/failed/returned) — done
+        //   - Has valid tracking number — tracking is a strong logistics signal
+        //   - Stage > 0 AND has carrier — dispatched by a known carrier
+        //
         if (!p.orderNumber && !p.trackingNumber) continue;
         if (p.stage >= 5) continue;
+        if (p.trackingNumber) continue;
+        if (p.stage > 0 && p.carrier) continue;
         const tokens = { access_token: user.access_token, refresh_token: user.refresh_token };
         const searchPkg = {
           thread_id: null,

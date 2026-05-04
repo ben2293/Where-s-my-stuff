@@ -309,54 +309,34 @@ function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOff
   return { stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate };
 }
 
-// Platform domains — the merchant field will say "Shopify" but the real
-// store name needs Haiku extraction. These should never skip Haiku.
+// Platform domains — the merchant field says "Shopify" but the real store
+// name is hidden in the email body. Haiku extracts it.
 const PLATFORM_DOMAINS = new Set(['Shopify', 'Unknown']);
 
 // ─── Confidence gate ────────────────────────────────────────────────────────
-// "When you're not sure, use Haiku to confirm. Be frugal — skip only when
-//  the source is trusted and the signal is unambiguous."
+// "Haiku enriches every active package with product names, expected dates,
+//  and stage verification. Skip only for finished packages where the journey
+//  is over and regex already has the full picture."
 //
-// SKIP Haiku (trusted sources, strong signals):
-//   - Known carrier (Delhivery, BlueDart, etc.) + valid tracking
-//   - Known merchant (Amazon, Flipkart, Myntra, etc.) + valid order number
-//   - Finished package (stage 5+) + any valid identifier from any source
+// SKIP Haiku:
+//   - Finished packages (stage 5+) with a valid identifier — done, no enrichment needed
 //
-// SEND to Haiku (unknown sources need verification, regardless of signals):
-//   - Unknown/domain-derived merchant — even with order # and stage
-//   - Platform sender (Shopify) — needs real store name + product
-//   - Any email with no stage detected
-//   - Active packages from non-trusted sources
+// SEND to Haiku (active packages always benefit from enrichment):
+//   - All active packages (stages 0-4) — needs product name, expected date, stage confirmation
+//   - Any email with no stage detected — Haiku classifies it
 //
 function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate }) {
   if (!stageResult) return false;
 
+  // Active packages always benefit from Haiku enrichment
+  if (stageResult.stage >= 0 && stageResult.stage <= 4) return false;
+
+  // Finished packages (stage 5+): skip Haiku if we have an identifier
   const hasValidTracking = isValidTrackingNumber(trackingNumber);
   const hasValidOrder = isValidOrderNumber(orderNumber);
+  if (stageResult.stage >= 5 && (hasValidTracking || hasValidOrder)) return true;
 
-  // Platform senders always need Haiku for store name + product
-  if (PLATFORM_DOMAINS.has(merchant)) return false;
-
-  const isKnownMerchant = MERCHANT_FROM.some(m => m.name === merchant);
-  const isKnownCarrier = CARRIER_MAP.some(c => c.name === carrier);
-
-  // Finished packages (delivered/returned): keep if we have any identifier
-  if (stageResult.stage >= 5) {
-    if (hasValidTracking || hasValidOrder) return true;
-    return false;
-  }
-
-  // Active packages (stages 0-4)
-  // ONLY skip Haiku for trusted senders with unambiguous signals.
-  // Everyone else → Haiku confirms it's real, not marketing/spam.
-
-  // Trusted: known carrier + valid tracking
-  if (isKnownCarrier && hasValidTracking) return true;
-
-  // Trusted: known merchant + valid order number
-  if (isKnownMerchant && hasValidOrder) return true;
-
-  // Unknown source (domain-derived merchant, new brand, etc.) — Haiku verifies
+  // Finished but no identifier — needs Haiku to find one
   return false;
 }
 

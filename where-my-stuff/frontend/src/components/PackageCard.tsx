@@ -265,8 +265,8 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
             )}
           </div>
           {pkg.price != null && (
-            <span className="text-sm font-bold text-foreground whitespace-nowrap flex-shrink-0">
-              ₹{pkg.price.toLocaleString('en-IN')}
+            <span className="text-sm font-mono font-bold text-foreground">
+              {pkg.currency === 'USD' ? '$' : '₹'}{pkg.price.toLocaleString('en-IN')}
             </span>
           )}
         </div>

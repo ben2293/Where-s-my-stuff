@@ -241,22 +241,45 @@ function extractProductImage(html) {
 }
 
 function extractPrice(text) {
-  const parse = s => {
+  const parseVal = s => {
     const n = Math.round(parseFloat(s.replace(/,/g, '')));
     return (n > 0 && n < 500000) ? n : null;
   };
-  // "Total" then up to 80 chars of anything (handles separate HTML cells), then optional ₹, then amount
-  const t1 = text.match(/(?:grand\s+)?total[^₹\d\n]{0,80}(?:₹|Rs\.?|INR)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-  if (t1) { const n = parse(t1[1]); if (n) return n; }
-  // Amount paid / charged
-  const t2 = text.match(/(?:amount\s+(?:paid|charged|due)|order\s+total)[^₹\d\n]{0,60}(?:₹|Rs\.?)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-  if (t2) { const n = parse(t2[1]); if (n) return n; }
-  // ₹ / Rs before amount, then "total/paid/charged" nearby
-  const t3 = text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:total|paid|charged)/i);
-  if (t3) { const n = parse(t3[1]); if (n) return n; }
-  // Fallback: ₹ prefix (Amazon-style, handles "₹249 00" superscript artifact)
-  const t4 = text.match(/(?:₹|Rs\.?)\s*([\d,]+)(?:\s+\d{2})?\b/i);
-  if (t4) { const n = parse(t4[1]); if (n) return n; }
+
+  // ── Detect currency ──
+  const hasRupee = /₹|Rs\.?|INR|rupees/i.test(text);
+  const hasDollar = /\$|USD|US\s?\$|dollars/i.test(text);
+
+  // ── INR patterns ──
+  if (hasRupee) {
+    // ₹ or Rs prefix
+    const m1 = text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:total|paid|charged)/i);
+    if (m1) { const n = parseVal(m1[1]); if (n) return { amount: n, currency: 'INR' }; }
+    // Fallback: ₹ prefix (Amazon-style "₹249 00" superscript artifact)
+    const m2 = text.match(/(?:₹|Rs\.?)\s*([\d,]+)(?:\s+\d{2})?\b/i);
+    if (m2) { const n = parseVal(m2[1]); if (n) return { amount: n, currency: 'INR' }; }
+  }
+
+  // ── USD patterns ──
+  if (hasDollar) {
+    // $ prefix
+    const m1 = text.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (m1) { const n = parseVal(m1[1]); if (n) return { amount: n, currency: 'USD' }; }
+    // "USD" or "US$" prefix
+    const m2 = text.match(/(?:USD|US\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
+    if (m2) { const n = parseVal(m2[1]); if (n) return { amount: n, currency: 'USD' }; }
+  }
+
+  // ── Generic "total" pattern (defaults to INR for Indian context) ──
+  const t1 = text.match(/(?:grand\s+)?total[^$₹\d\n]{0,80}(?:₹|Rs\.?|INR|\$|USD)?\s*([\d,]+(?:\.\d{1,2})?)/i);
+  if (t1) {
+    const n = parseVal(t1[1]);
+    if (n) {
+      const ctx = text.slice(Math.max(0, t1.index - 20), t1.index + t1[0].length + 20);
+      return { amount: n, currency: /\$|USD/i.test(ctx) ? 'USD' : 'INR' };
+    }
+  }
+
   return null;
 }
 
@@ -311,10 +334,12 @@ function extractBodyAndImage(payload) {
     : (hashMatch && looksLikeOrderNumber(hashMatch[1])) ? hashMatch[1]
     : null;
 
+  const priceResult = extractPrice(text);
   return {
     text,
     imageUrl: extractProductImage(rawHtml),
-    price: extractPrice(text),
+    price: priceResult?.amount ?? null,
+    currency: priceResult?.currency ?? null,
     orderNumberHint,
   };
 }
@@ -514,10 +539,10 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
           console.log(`[sync] USER BLOCKED: "${subject.slice(0,60)}" from=${fromEmail}`);
           return null;
         }
-        const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+        const { text: body, imageUrl, price, currency, orderNumberHint } = extractBodyAndImage(msg.data.payload);
         console.log(`[sync] PRE-FILTER PASS: "${subject.slice(0,60)}" from=${fromEmail} hasLU=${hasListUnsub} known=${knownSender} plausible=${plausible}`);
         return {
-          id, from, subject, snippet, body, imageUrl, price, orderNumberHint,
+          id, from, subject, snippet, body, imageUrl, price, currency, orderNumberHint,
           thread_id: msg.data.threadId || null,
           fromEmail,
           dateStr,
@@ -578,6 +603,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
       from_address: e.fromEmail,
       image_url: e.imageUrl,
       price: e.price,
+      currency: e.currency || 'INR',
       ...p,
       subject: decodeEntities(e.subject),
       snippet: e.snippet.slice(0, 500),

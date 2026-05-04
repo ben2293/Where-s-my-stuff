@@ -172,8 +172,8 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       await run(
         `INSERT INTO packages
            (user_email, gmail_message_id, thread_id, from_address, merchant, carrier, tracking_number,
-            order_number, status, stage, subject, received_date, snippet, image_url, price, expected_date, product_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            order_number, status, stage, subject, received_date, snippet, image_url, price, expected_date, product_name, currency)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, gmail_message_id) DO UPDATE SET
            merchant=excluded.merchant, carrier=excluded.carrier,
            stage=CASE WHEN excluded.stage>=7 THEN GREATEST(excluded.stage,packages.stage) WHEN packages.stage>=7 THEN packages.stage WHEN packages.manually_delivered=1 AND packages.stage>=5 THEN packages.stage ELSE GREATEST(excluded.stage,packages.stage) END,
@@ -184,12 +184,13 @@ app.post('/api/sync', requireAuth, async (req, res) => {
            price=COALESCE(excluded.price, packages.price),
            order_number=COALESCE(excluded.order_number, packages.order_number),
            expected_date=COALESCE(excluded.expected_date, packages.expected_date),
-           product_name=COALESCE(excluded.product_name, packages.product_name),
-           updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT`,
+            product_name=COALESCE(excluded.product_name, packages.product_name),
+            currency=COALESCE(excluded.currency, packages.currency),
+            updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT`,
         [userEmail, p.gmail_message_id, p.thread_id || null, p.from_address || null,
          p.merchant, p.carrier, p.trackingNumber, p.orderNumber || null, p.status, p.stage,
          p.subject, p.received_date, p.snippet, p.image_url || null, p.price || null, p.expectedDate || null,
-         p.productName || null]
+         p.productName || null, p.currency || 'INR']
       );
     }
 

@@ -21,6 +21,7 @@ export interface Package {
   thread_id?: string | null;
   image_url?: string | null;
   price?: number | null;
+  currency?: string | null;
   expected_date?: string | null;
   product_name?: string | null;
   updated_at: number;

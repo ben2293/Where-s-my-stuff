@@ -67,6 +67,7 @@ async function getDb() {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_pkg_user ON packages(user_email, received_date)`);
   await pool.query(`ALTER TABLE packages ADD COLUMN IF NOT EXISTS product_name TEXT`);
+  await pool.query(`ALTER TABLE packages ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'INR'`);
   return pool;
 }
 

@@ -82,7 +82,7 @@ export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActiv
   const badge = STAGE_BADGE[stage];
   const emoji = MERCHANT_EMOJI[pkg.merchant] ?? '📦';
   const title = getTitle(pkg);
-  const price = pkg.price ? `₹${pkg.price.toLocaleString('en-IN')}` : null;
+  const price = pkg.price ? `${pkg.currency === 'USD' ? '$' : '₹'}${pkg.price.toLocaleString('en-IN')}` : null;
   const header = pkg.carrier ? `${pkg.merchant} · ${pkg.carrier}` : pkg.merchant;
 
   const copy = async () => {

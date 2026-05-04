@@ -176,10 +176,17 @@ function decodeEntities(str) {
 
 function extractProductImage(html) {
   if (!html) return null;
+
+  // Truncate at promotional sections — only scan the order-summary portion of the email.
+  // Everything after "Related products", "You might also like", etc. is promotional noise.
+  const PROMO_SPLITTER = /related\s+products|you\s+might\s+also\s+like|recommended\s+for\s+you|customers\s+also\s+bought|complete\s+your\s+purchase|more\s+items\s+to\s+consider|based\s+on\s+your\s+viewing/i;
+  const promoMatch = html.match(PROMO_SPLITTER);
+  const scanHtml = promoMatch ? html.slice(0, promoMatch.index) : html;
+
   const candidates = [];
   const imgRe = /<img([^>]+)>/gi;
   let m;
-  while ((m = imgRe.exec(html)) !== null) {
+  while ((m = imgRe.exec(scanHtml)) !== null) {
     const tag = m[1];
     const srcM = tag.match(/src=["']([^"']+)["']/i);
     if (!srcM) continue;
@@ -213,8 +220,8 @@ function extractProductImage(html) {
 
   // Prefer known product CDNs (ranked)
   const CDN_PRIORITY = [
-    // Amazon
-    /m\.media-amazon\.com|ssl-images-amazon\.com|images-amazon\.com/i,
+    // Amazon product images (not lifestyle banners)
+    /m\.media-amazon\.com\/images\/.*\/(?:I|41|51|61)\w{9,}/i,
     // Flipkart / Ekart
     /rukminim\d*\.flixcart\.com|img\.fkcdn\.com/i,
     // Myntra

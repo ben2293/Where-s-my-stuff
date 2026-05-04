@@ -611,10 +611,12 @@ async function resyncPackage(userTokens, pkg, tzOffsetMin) {
   const gmail = google.gmail({ version: 'v1', auth: client });
 
   let messageIds = [];
+  let searchedByThread = false;
 
   if (pkg.thread_id) {
     const thread = await gmail.users.threads.get({ userId: 'me', id: pkg.thread_id, format: 'minimal' });
     messageIds = (thread.data.messages || []).map(m => m.id);
+    searchedByThread = true;
   } else {
     const q = isValidSearchQuery(pkg.tracking_number)
       ? pkg.tracking_number
@@ -637,9 +639,10 @@ async function resyncPackage(userTokens, pkg, tzOffsetMin) {
       const dateStr = h('Date');
       const snippet = decodeEntities(msg.data.snippet || '');
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
-      // Full delivery validation: use body text too, not just subject+snippet.
-      // This prevents non-delivery emails from corrupting the package.
-      if (!isDeliveryEmail(subject, snippet, body)) continue;
+      // For thread-based searches (all messages in a thread), filter out
+      // non-delivery emails (marketing, feedback) that share the thread.
+      // For order/tracking-number-based searches, every result is relevant.
+      if (searchedByThread && !isDeliveryEmail(subject, snippet, body)) continue;
       const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() }, tzOffsetMin);
       const fromEmail = extractEmail(from);
       const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;

@@ -115,6 +115,47 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       await run('UPDATE users SET access_token = ? WHERE email = ?', [freshAccessToken, userEmail]);
     }
 
+    // Enrich each package by searching Gmail for its order/tracking number.
+    // The subject-keyword search may only find one email (e.g. "order confirmed").
+    // Searching by order number finds the FULL lifecycle: shipped, tracking, delivered.
+    // This runs BEFORE storage so the package is saved at the correct stage immediately.
+    for (let i = 0; i < packages.length; i++) {
+      const p = packages[i];
+      try {
+        // Only enrich active packages (stage 0-4) with searchable identifiers.
+        // Delivered/failed packages (stage 5+) are done — no enrichment needed.
+        // Packages without order or tracking number can't be searched by identifier.
+        if (!p.orderNumber && !p.trackingNumber) continue;
+        if (p.stage >= 5) continue;
+        const tokens = { access_token: user.access_token, refresh_token: user.refresh_token };
+        const searchPkg = {
+          thread_id: null,
+          order_number: p.orderNumber || null,
+          tracking_number: p.trackingNumber || null,
+        };
+        const { package: enriched, freshAccessToken: fat } = await resyncPackage(tokens, searchPkg, tzOffsetMin);
+        if (fat && fat !== user.access_token) {
+          await run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
+          user.access_token = fat;
+        }
+        if (enriched && enriched.stage > p.stage) {
+          // Found higher-stage emails → use enriched data
+          packages[i] = {
+            ...p,
+            stage: enriched.stage,
+            status: enriched.status,
+            carrier: enriched.carrier || p.carrier,
+            trackingNumber: enriched.trackingNumber || p.trackingNumber,
+            expectedDate: enriched.expectedDate || p.expectedDate,
+            image_url: enriched.image_url || p.image_url,
+            productName: enriched.productName || p.productName,
+          };
+        }
+      } catch (e) {
+        console.warn(`[sync] enrichment failed for order ${p.orderNumber}:`, e.message);
+      }
+    }
+
     for (const p of packages) {
       await run(
         `INSERT INTO packages

@@ -167,10 +167,16 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       [userEmail, userEmail, userEmail, userEmail]
     );
 
-    // Re-verify expected_date for active packages missing it
+    // Re-verify ALL active packages (not just missing expected_date).
+    // Shipping/delivery emails may have different subject lines that didn't
+    // match the keyword set. Searching by order/tracking number catches them.
+    // Only resync packages not updated in the last hour to avoid duplicate work.
+    const ONE_HOUR_MS = 3600_000;
+    const nowMs = Date.now();
     const activePkgs = await all(
-      `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 0 AND 4 AND expected_date IS NULL`,
-      [userEmail]
+      `SELECT * FROM packages WHERE user_email = ? AND stage BETWEEN 0 AND 4
+       AND (updated_at IS NULL OR updated_at < ?)`,
+      [userEmail, Math.floor((nowMs - ONE_HOUR_MS) / 1000)]
     );
     for (const pkg of activePkgs) {
       try {
@@ -183,7 +189,13 @@ app.post('/api/sync', requireAuth, async (req, res) => {
         const newDate = p?.expectedDate
           || extractExpectedDate(`${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date, tzOffsetMin)
           || (resyncBody ? extractExpectedDate(resyncBody, pkg.received_date, tzOffsetMin) : null);
-        if (newDate) await run('UPDATE packages SET expected_date = ? WHERE id = ?', [newDate, pkg.id]);
+        // Update stage if resync found a higher one (e.g. delivered email)
+        if (p && p.stage > pkg.stage) {
+          await run('UPDATE packages SET stage=?, status=?, expected_date=COALESCE(?,expected_date), updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT WHERE id=?',
+            [p.stage, p.status, newDate, pkg.id]);
+        } else if (newDate) {
+          await run('UPDATE packages SET expected_date = ? WHERE id = ?', [newDate, pkg.id]);
+        }
       } catch (e) {
         console.warn(`[sync] date re-verify failed for pkg ${pkg.id}:`, e.message);
       }

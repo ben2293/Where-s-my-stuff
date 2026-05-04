@@ -108,6 +108,8 @@ const DELIVERY_QUERY = [
   'subject:update',
   'subject:details',
   'subject:confirmation',
+  'subject:shipping',
+  'subject:transit',
 ].join(' OR ');
 
 function createOAuthClient() {

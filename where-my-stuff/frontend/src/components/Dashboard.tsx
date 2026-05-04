@@ -110,8 +110,10 @@ function deduplicate(pkgs: Package[]): Package[] {
   }
 
   const trkToKey = new Map<string, string>();
+  const ordToKey = new Map<string, string>();
   const merged = new Map<string, Package[]>();
   for (const [key, group] of groups) {
+    // Merge by tracking number
     const trk = group.find(p => p.tracking_number)?.tracking_number?.trim();
     if (trk) {
       const existing = trkToKey.get(trk);
@@ -120,6 +122,16 @@ function deduplicate(pkgs: Package[]): Package[] {
         continue;
       }
       trkToKey.set(trk, key);
+    }
+    // Merge by order number
+    const ord = group.find(p => p.order_number && !ORDER_BLACKLIST.test(p.order_number))?.order_number;
+    if (ord) {
+      const existing = ordToKey.get(ord);
+      if (existing && merged.has(existing)) {
+        merged.get(existing)!.push(...group);
+        continue;
+      }
+      ordToKey.set(ord, key);
     }
     merged.set(key, [...(merged.get(key) ?? []), ...group]);
   }

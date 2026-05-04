@@ -189,7 +189,7 @@ export default function CompactPackageRow({ pkg, onMute, onReport, onMoveToActiv
             </div>
             <div className="flex items-center gap-3">
               <a
-                href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id || pkg.gmail_message_id}`}
+                href={`https://mail.google.com/mail/u/0/#all/${pkg.gmail_message_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-foreground transition-colors"

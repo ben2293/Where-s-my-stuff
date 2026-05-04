@@ -102,22 +102,47 @@ const MERCHANT_FROM = [
   { name: 'BigBasket',       re: /@(?:[a-z0-9-]+\.)?bigbasket\.com\b/i },
   { name: 'Tata Cliq',       re: /@(?:[a-z0-9-]+\.)?tatacliq\.com\b/i },
   { name: 'Snapdeal',        re: /@(?:[a-z0-9-]+\.)?snapdeal\.com\b/i },
-  { name: 'Delhivery',       re: /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i },
-  { name: 'BlueDart',        re: /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i },
   { name: 'Apple',           re: /@(?:[a-z0-9-]+\.)?apple\.com\b/i },
   { name: 'Raspberry Pi',    re: /@(?:[a-z0-9-]+\.)?raspberrypi\.(?:com|org)\b/i },
   { name: 'Shopify',         re: /@(?:[a-z0-9-]+\.)?shopifyemail\.com\b/i },
+];
+
+// Domains that are shipping carriers — NOT merchants.
+// Emails from these should use Haiku's merchant detection, not the carrier name.
+const CARRIER_DOMAINS = [
+  /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i,
+  /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i,
+  /@(?:[a-z0-9-]+\.)?ekartlogistics\.com\b/i,
+  /@(?:[a-z0-9-]+\.)?xpressbees\.com\b/i,
+  /@(?:[a-z0-9-]+\.)?shadowfax\.in\b/i,
+  /@(?:[a-z0-9-]+\.)?ecomexpress\.in\b/i,
+  /@(?:[a-z0-9-]+\.)?shiprocket\.in\b/i,
+  /@(?:[a-z0-9-]+\.)?dtdc\.(in|com)\b/i,
+  /@(?:[a-z0-9-]+\.)?shiptrackr\.(in|com)\b/i,
+  /@(?:[a-z0-9-]+\.)?track\.[a-z]+\.(in|com)\b/i,
+  /@(?:[a-z0-9-]+\.)? Shiprocket\.com\b/i,
 ];
 
 function detectMerchant(from) {
   for (const { name, re } of MERCHANT_FROM) {
     if (re.test(from)) return name;
   }
+  // Carrier domains should NOT be treated as merchants
+  for (const re of CARRIER_DOMAINS) {
+    if (re.test(from)) return null;
+  }
   const m = from.match(/@(?:[a-z0-9-]+\.)*([a-z0-9-]+)\.(?:in|com|org|co|net|io|store|shop)\b/i);
   if (!m) return null;
   const domain = m[1];
   if (['gmail','yahoo','outlook','hotmail','icloud','mail','info','noreply','t','mg','em','send'].includes(domain)) return null;
   return domain.charAt(0).toUpperCase() + domain.slice(1);
+}
+
+function isCarrierSender(from) {
+  for (const re of CARRIER_DOMAINS) {
+    if (re.test(from)) return true;
+  }
+  return false;
 }
 
 // ─── Tracking + order extraction ──────────────────────────────────────────
@@ -164,14 +189,33 @@ function extractExpectedDate(text, receivedMs, tzOffsetMin) {
 
 // ─── Fast regex pass ───────────────────────────────────────────────────────
 
+const CARRIER_MAP = [
+  { name: 'Delhivery',    re: /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i },
+  { name: 'BlueDart',     re: /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i },
+  { name: 'Ekart',        re: /@(?:[a-z0-9-]+\.)?ekartlogistics\.com\b/i },
+  { name: 'XpressBees',   re: /@(?:[a-z0-9-]+\.)?xpressbees\.com\b/i },
+  { name: 'Shadowfax',   re: /@(?:[a-z0-9-]+\.)?shadowfax\.in\b/i },
+  { name: 'Ecom Express', re: /@(?:[a-z0-9-]+\.)?ecomexpress\.in\b/i },
+  { name: 'DTDC',         re: /@(?:[a-z0-9-]+\.)?dtdc\.(in|com)\b/i },
+  { name: 'Amazon Logistics', re: /@(?:[a-z0-9-]+\.)?amazon\.(in|com)\b/i },
+];
+
+function detectCarrier(from) {
+  for (const { name, re } of CARRIER_MAP) {
+    if (re.test(from)) return name;
+  }
+  return null;
+}
+
 function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOffsetMin }) {
   const shortText = `${subject} ${snippet}`;
   const stageResult = detectStage(shortText);
   const merchant = detectMerchant(from);
+  const carrier = detectCarrier(from);
   const trackingNumber = extractTracking(shortText);
   const orderNumber = extractOrderNumber(shortText, orderNumberHint);
   const expectedDate = extractExpectedDate(shortText, receivedMs || Date.now(), tzOffsetMin);
-  return { stageResult, merchant, trackingNumber, orderNumber, expectedDate };
+  return { stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate };
 }
 
 // An email is "resolved" if we have stage + identifier — BUT stage 0-4 always go through
@@ -265,7 +309,7 @@ async function parseEmailsBatch(emailList, tzOffsetMin) {
         stage: quick.stageResult.stage,
         status: quick.stageResult.status,
         merchant: quick.merchant || 'Unknown',
-        carrier: null,
+        carrier: quick.carrier || null,
         trackingNumber: quick.trackingNumber,
         orderNumber: quick.orderNumber,
         expectedDate: quick.expectedDate,
@@ -293,10 +337,11 @@ async function parseEmailsBatch(emailList, tzOffsetMin) {
           email.receivedMs,
           tzOffsetMin
         );
+        const quickForCarrier = quickParse({ ...email, tzOffsetMin });
         results[idx] = {
           stage, status,
           merchant: normalizeMerchant(h.merchant || quick_merchant(email.from), email.from),
-          carrier: h.carrier || null,
+          carrier: h.carrier || quickForCarrier.carrier || null,
           trackingNumber: h.trackingNumber || null,
           orderNumber: h.orderNumber || email.orderNumberHint || null,
           expectedDate,
@@ -309,7 +354,7 @@ async function parseEmailsBatch(emailList, tzOffsetMin) {
           stage: quick.stageResult?.stage ?? 0,
           status: quick.stageResult?.status ?? 'Order Confirmed',
           merchant: quick.merchant || 'Unknown',
-          carrier: null,
+          carrier: quick.carrier || null,
           trackingNumber: quick.trackingNumber,
           orderNumber: quick.orderNumber,
           expectedDate: quick.expectedDate,
@@ -330,10 +375,13 @@ function quick_merchant(from) {
 }
 
 function normalizeMerchant(name, from) {
-  // Let regex-based detection win for known senders — Haiku sometimes returns "Amazon.in" etc.
+  // For known merchants (Amazon, Flipkart, etc.), regex detection wins
   const detected = detectMerchant(from);
   if (detected) return detected;
-  return name;
+  // For carrier senders (Delhivery, ShipTrackr, etc.), prefer Haiku's answer
+  if (isCarrierSender(from)) return name || 'Unknown';
+  // For other unknown senders, prefer Haiku's answer if available
+  return name || detectMerchant(from) || 'Unknown';
 }
 
 // Single-email interface for resync

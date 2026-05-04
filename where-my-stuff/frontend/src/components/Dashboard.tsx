@@ -87,10 +87,15 @@ function mergeGroup(group: Package[]): Package {
   // "Ordered" date should be the EARLIEST email (order confirmation), not the latest status update
   const earliestDate = group.reduce((min, p) => p.received_date < min ? p.received_date : min, group[0].received_date);
   const bestSubject = group.slice().sort((a, b) => subjectScore(b.subject) - subjectScore(a.subject))[0].subject;
+  // Prefer image from highest-stage package (delivery/shipping emails have better product images)
   const bestImage = [...group].sort((a, b) => b.stage - a.stage || b.received_date - a.received_date).find(p => p.image_url)?.image_url ?? null;
-  const bestPrice = group.find(p => p.price)?.price ?? null;
+  // Prefer price from winner package (most recent status update has accurate total)
+  const bestPrice = winner.price ?? group.find(p => p.price)?.price ?? null;
+  // Prefer expected_date from highest-stage package
   const bestExpected = [...group].sort((a, b) => b.stage - a.stage || b.received_date - a.received_date).find(p => p.expected_date)?.expected_date ?? null;
-  return { ...winner, received_date: earliestDate, subject: bestSubject, image_url: bestImage, price: bestPrice, expected_date: bestExpected };
+  // Use gmail_message_id from the most recent email for a reliable link
+  const bestGmailId = [...group].sort((a, b) => b.received_date - a.received_date)[0].gmail_message_id;
+  return { ...winner, received_date: earliestDate, subject: bestSubject, image_url: bestImage, price: bestPrice, expected_date: bestExpected, gmail_message_id: bestGmailId ?? winner.gmail_message_id };
 }
 
 function deduplicate(pkgs: Package[]): Package[] {

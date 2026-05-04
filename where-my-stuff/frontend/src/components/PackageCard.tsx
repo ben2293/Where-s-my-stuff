@@ -334,7 +334,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
 
       <div className="px-6 pb-5 flex items-center gap-2 mt-auto">
         <Button variant="outline" size="sm" asChild>
-          <a href={`https://mail.google.com/mail/u/0/#all/${pkg.thread_id ?? pkg.gmail_message_id}`} target="_blank" rel="noopener noreferrer">
+          <a href={`https://mail.google.com/mail/u/0/#all/${pkg.gmail_message_id}`} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="w-3 h-3" />
             View in Gmail
           </a>

@@ -182,7 +182,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
-  const [displayLimit, setDisplayLimit] = useState(8);
+  const [displayLimit, setDisplayLimit] = useState(15);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
@@ -417,12 +417,12 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   </div>
                   {(displayLimit < rest.length || packages.length < pkgTotal) && (
                     <button
-                      onClick={() => {
+                       onClick={() => {
                         if (displayLimit < rest.length) {
-                          setDisplayLimit(d => d + 10);
+                          setDisplayLimit(d => d + 15);
                         } else {
                           onLoadMore();
-                          setDisplayLimit(d => d + 10);
+                          setDisplayLimit(d => d + 15);
                         }
                       }}
                       disabled={loadingMore}

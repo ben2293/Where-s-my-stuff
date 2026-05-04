@@ -94,7 +94,7 @@ export default function App() {
 
   async function loadPackages() {
     try {
-      const res = await authFetch('/api/packages?limit=50&offset=0');
+      const res = await authFetch('/api/packages?limit=200&offset=0');
       if (res.ok) {
         const data = await res.json();
         setPackages(data.packages);
@@ -107,7 +107,7 @@ export default function App() {
     if (loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await authFetch(`/api/packages?limit=50&offset=${packages.length}`);
+      const res = await authFetch(`/api/packages?limit=200&offset=${packages.length}`);
       if (res.ok) {
         const data = await res.json();
         setPackages(prev => [...prev, ...data.packages]);

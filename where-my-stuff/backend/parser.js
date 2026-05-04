@@ -164,14 +164,64 @@ function extractTracking(text) {
   return null;
 }
 
+// ─── Strict identifier validation ───────────────────────────────────────────
+// Order numbers are extremely varied, so regex alone is dangerous.
+// We validate extracted candidates with strict rules before trusting them.
+
+const ORDER_WORD_BLACKLIST = /^(confirmed|placed|received|shipped|dispatched|delivered|update|processing|accepted|cancelled|canceled|payment|status|order|number|track|tracking|ref|id|has|been|will|your|this|that|with|from|for|and|the|are|you|not|but|can|had|her|was|one|our|out|day|get|him|his|how|its|may|new|now|old|see|two|who|boy|did|she|use|her|way|many|oil|sit|set|run|eat|far|sea|eye|ago|off|too|any|say|man|try|ask|end|why|let|put|come|here|just|like|long|make|over|such|take|than|them|well|were|what|have|they|know|want|good|much|some|time|very|tell)$/i;
+
+function isValidOrderNumber(val) {
+  if (!val || typeof val !== 'string') return false;
+  if (val.length < 5) return false;
+  if (!/\d/.test(val)) return false;
+  if (ORDER_WORD_BLACKLIST.test(val)) return false;
+  // Must look like an actual identifier: starts with letter or digit, no spaces
+  if (!/^[A-Za-z0-9][A-Za-z0-9\-_]+$/.test(val)) return false;
+  return true;
+}
+
+function isValidTrackingNumber(val) {
+  if (!val || typeof val !== 'string') return false;
+  if (val.length < 6) return false;
+  if (!/^\d/.test(val) && !/^[A-Z]{2,4}\d/.test(val)) return false;
+  if (TRACKING_BLACKLIST.test(val)) return false;
+  return true;
+}
+
+// ─── Conservative order number extraction ───────────────────────────────────
+// ONLY matches patterns where the prefix is explicit.
+// "order has been received" → NO match (no explicit number keyword or #)
+// "order #12345" → MATCH
+// "order number 12345" → MATCH
+// "order no 12345" → MATCH
+// "order id: ABC-123" → MATCH
+// "booking ref: XYZ789" → MATCH
+// "#12345" → MATCH (hash prefix is strong signal)
+
 function extractOrderNumber(text, hint) {
+  // 1. Use hint only if it passed strict validation
+  if (isValidOrderNumber(hint)) return hint;
+
+  // 2. Amazon format is very specific and reliable
   const amazon = text.match(/\b(\d{3}-\d{7}-\d{7})\b/);
-  if (amazon) return amazon[1];
-  const kw = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:(?:number|no|id|ref(?:erence)?)[\s#:./-]+)?([A-Z0-9]{3,20})\b/i);
-  if (kw && !/^(confirmed|placed|received|shipped|dispatched|delivered|update)$/i.test(kw[1])) return kw[1];
-  const hash = text.match(/#([A-Z0-9]{3,20})\b/i);
-  if (hash) return hash[1];
-  return hint || null;
+  if (amazon && isValidOrderNumber(amazon[1])) return amazon[1];
+
+  // 3. Explicit prefix required: order/booking/receipt + number/no/id/ref
+  //    The prefix keyword is MANDATORY, not optional.
+  //    "order number 12345", "order no 12345", "order id: ABC-123", "booking ref: XYZ789"
+  const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_]{5,20})\b/i);
+  if (explicit && isValidOrderNumber(explicit[1])) return explicit[1];
+
+  // 4. Hash shorthand: "order #12345", "order # 12345", "receipt #ABC-123"
+  //    The # symbol acts as a strong delimiter when paired with order/booking/receipt.
+  const hashShorthand = text.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  if (hashShorthand && isValidOrderNumber(hashShorthand[1])) return hashShorthand[1];
+
+  // 5. Standalone hash: #XXXXX — only when it looks like an actual identifier
+  const hash = text.match(/#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  if (hash && isValidOrderNumber(hash[1])) return hash[1];
+
+  return null;
 }
 
 function extractExpectedDate(text, receivedMs, tzOffsetMin) {
@@ -218,12 +268,45 @@ function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOff
   return { stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate };
 }
 
-// An email is "resolved" if we have stage + identifier — BUT stage 0-4 always go through
-// Haiku: stage 0 to extract expected date + full order context; stage 2-4 for accurate date.
-function isResolved({ stageResult, merchant, trackingNumber, orderNumber }) {
+// ─── Confidence gate ────────────────────────────────────────────────────────
+// Default: GO TO HAIKU. Only skip Haiku when regex extraction is 100% solid.
+//
+// Why? Regex can match stage keywords in marketing emails, digest summaries,
+// or unrelated contexts. Haiku reads the actual content and confirms.
+//
+// Solid signals (skip Haiku):
+//   - Known carrier sender + valid tracking number
+//   - Known merchant sender + valid order number
+//   - Unambiguous stage from a trusted domain
+//
+// Ambiguous → Haiku:
+//   - Unknown sender with just a stage keyword
+//   - No identifier extracted
+//   - Active package (needs accurate expected date anyway)
+//
+function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber, orderNumber }) {
   if (!stageResult) return false;
-  if (stageResult.stage >= 0 && stageResult.stage <= 4) return false; // always Haiku for active+ordered
-  if (stageResult.stage > 0) return true;
+
+  // Active packages always need Haiku for accurate expected dates + context
+  if (stageResult.stage >= 0 && stageResult.stage <= 4) return false;
+
+  // Finished packages (5+): only skip Haiku with strong signals
+  if (stageResult.stage >= 5) {
+    // Must have a real identifier
+    const hasValidTracking = isValidTrackingNumber(trackingNumber);
+    const hasValidOrder = isValidOrderNumber(orderNumber);
+    if (!hasValidTracking && !hasValidOrder) return false;
+
+    // Strong signal: known carrier domain + tracking number
+    if (carrier && hasValidTracking) return true;
+
+    // Strong signal: known merchant + order number
+    if (merchant && merchant !== 'Unknown' && hasValidOrder) return true;
+
+    // Weak signal: unknown sender with just an identifier → ambiguous, Haiku confirms
+    return false;
+  }
+
   return false;
 }
 
@@ -304,7 +387,7 @@ async function parseEmailsBatch(emailList, tzOffsetMin) {
   for (let i = 0; i < emailList.length; i++) {
     const e = emailList[i];
     const quick = quickParse({ ...e, tzOffsetMin });
-    if (isResolved(quick)) {
+    if (isConfidentExtraction(quick)) {
       results[i] = {
         stage: quick.stageResult.stage,
         status: quick.stageResult.status,
@@ -421,4 +504,7 @@ async function deepEnrichEmail({ from, subject, snippet, body }) {
   }
 }
 
-module.exports = { parseEmail, parseEmailsBatch, extractExpectedDate, deepEnrichEmail };
+module.exports = {
+  parseEmail, parseEmailsBatch, extractExpectedDate, deepEnrichEmail,
+  isValidOrderNumber, isValidTrackingNumber,
+};

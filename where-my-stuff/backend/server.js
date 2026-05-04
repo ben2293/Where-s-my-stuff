@@ -4,7 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { getDb, get, all, run } = require('./db');
 const { getAuthUrl, exchangeCode, syncGmail, resyncPackage } = require('./gmail');
-const { extractExpectedDate, deepEnrichEmail } = require('./parser');
+const { extractExpectedDate, deepEnrichEmail, isValidOrderNumber } = require('./parser');
 
 const app = express();
 const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
@@ -216,31 +216,39 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
     );
     if (freshAccessToken) await run('UPDATE users SET access_token = ? WHERE email = ?', [freshAccessToken, req.userEmail]);
     if (p) {
+      const oldOrderValid = isValidOrderNumber(pkg.order_number);
+      const newOrderValid = isValidOrderNumber(p.orderNumber);
       await run(
         `UPDATE packages SET
            merchant=?, carrier=?,
            stage=CASE WHEN manually_delivered=1 AND stage>=5 THEN stage ELSE ? END,
            status=CASE WHEN manually_delivered=1 AND stage>=5 THEN status ELSE ? END,
            tracking_number=COALESCE(?, tracking_number),
-           order_number=COALESCE(?, order_number),
-           expected_date=COALESCE(?, expected_date),
+           order_number=?,
+           expected_date=?,
            image_url=COALESCE(?, image_url),
            price=COALESCE(?, price),
            product_name=COALESCE(?, product_name),
+           subject=?, snippet=?, from_address=?,
+           gmail_message_id=?, thread_id=COALESCE(?, thread_id),
            updated_at=EXTRACT(EPOCH FROM NOW())::BIGINT
          WHERE id=?`,
         [p.merchant, p.carrier, p.stage, p.status,
-         p.trackingNumber, p.orderNumber, p.expectedDate,
-         p.image_url, p.price, p.productName || null, id]
+         p.trackingNumber,
+         newOrderValid ? p.orderNumber : (oldOrderValid ? pkg.order_number : null),
+         p.expectedDate || null,
+         p.image_url, p.price, p.productName || null,
+         p.subject || pkg.subject, p.snippet || pkg.snippet, p.from_address || pkg.from_address,
+         p.gmail_message_id, p.thread_id || pkg.thread_id, id]
       );
     }
 
     // Deep Haiku enrichment — extract product name + real store name from full email body
     if (resyncBody) {
       const enriched = await deepEnrichEmail({
-        from: pkg.from_address || '',
+        from: (p?.from_address) || pkg.from_address || '',
         subject: (p?.subject) || pkg.subject || '',
-        snippet: pkg.snippet || '',
+        snippet: (p?.snippet) || pkg.snippet || '',
         body: resyncBody,
       }).catch(() => null);
       if (enriched) {

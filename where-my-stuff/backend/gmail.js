@@ -304,14 +304,33 @@ function extractBodyAndImage(payload) {
   walk(payload);
   const fullText = decodeEntities(texts.join(' '));
   const text = fullText.slice(0, 10000);
-  // Extract order number from full text before truncation — order numbers can appear
-  // deep in merchant emails beyond the truncation window
+
+  // ─── Order number hint extraction (conservative) ──────────────────────────
+  // We ONLY pass hints that look like real order numbers.
+  // The parser.js strict validation will double-check anyway.
+  const ORDER_HINT_BLACKLIST = /^(confirmed|placed|received|shipped|dispatched|delivered|update|processing|accepted|cancelled|canceled|payment|status|order|number|track|tracking|ref|id|has|been|will|your|this|that|with|from|for|and|the|are|you|not|but|can|had|her|was|one|our|out|day|get|him|his|how|its|may|new|now|old|see|two|who|boy|did|she|use|way|many|oil|sit|set|run|eat|far|sea|eye|ago|off|too|any|say|man|try|ask|end|why|let|put|come|here|just|like|long|make|over|such|take|than|them|well|were|what|have|they|know|want|good|much|some|time|very|tell)$/i;
+
+  function looksLikeOrderNumber(v) {
+    if (!v || v.length < 5 || !/\d/.test(v) || ORDER_HINT_BLACKLIST.test(v)) return false;
+    if (!/^[A-Za-z0-9][A-Za-z0-9\-_]+$/.test(v)) return false;
+    return true;
+  }
+
+  // 1. Amazon format is unmistakable
   const amazonOrderMatch = fullText.match(/\b(\d{3}-\d{7}-\d{7})\b/);
-  const genericOrderMatch = fullText.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)?[\s#:./-]+([A-Z0-9]{3,20})\b/i)
-    || fullText.match(/#([A-Z0-9]{3,20})\b/);
-  const orderNumberHint = amazonOrderMatch ? amazonOrderMatch[1]
-    : (genericOrderMatch && !/^(confirmed|placed|received|shipped|dispatched|delivered|update)$/i.test(genericOrderMatch[1])) ? genericOrderMatch[1]
+  // 2. Explicit prefix + number keyword (e.g. "order number 12345", "order id: ABC")
+  const explicitMatch = fullText.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_]{5,20})\b/i);
+  // 3. Hash shorthand (e.g. "order #12345", "order # 12345")
+  const hashShorthandMatch = fullText.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  // 4. Standalone hash prefix (e.g. "#12345")
+  const hashMatch = fullText.match(/#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+
+  const orderNumberHint = (amazonOrderMatch && looksLikeOrderNumber(amazonOrderMatch[1])) ? amazonOrderMatch[1]
+    : (explicitMatch && looksLikeOrderNumber(explicitMatch[1])) ? explicitMatch[1]
+    : (hashShorthandMatch && looksLikeOrderNumber(hashShorthandMatch[1])) ? hashShorthandMatch[1]
+    : (hashMatch && looksLikeOrderNumber(hashMatch[1])) ? hashMatch[1]
     : null;
+
   return {
     text,
     imageUrl: extractProductImage(rawHtml),
@@ -512,6 +531,14 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
   return { packages: results, freshAccessToken };
 }
 
+function isValidSearchQuery(val) {
+  if (!val || typeof val !== 'string') return false;
+  if (val.length < 5) return false;
+  if (!/\d/.test(val)) return false;
+  if (/^(confirmed|placed|received|shipped|dispatched|delivered|update|processing|accepted|cancelled|canceled|payment|status|order|number|track|tracking)$/i.test(val)) return false;
+  return true;
+}
+
 async function resyncPackage(userTokens, pkg, tzOffsetMin) {
   const client = createOAuthClient();
   client.setCredentials({
@@ -528,9 +555,9 @@ async function resyncPackage(userTokens, pkg, tzOffsetMin) {
     const thread = await gmail.users.threads.get({ userId: 'me', id: pkg.thread_id, format: 'minimal' });
     messageIds = (thread.data.messages || []).map(m => m.id);
   } else {
-    const q = pkg.tracking_number
+    const q = isValidSearchQuery(pkg.tracking_number)
       ? pkg.tracking_number
-      : pkg.order_number
+      : isValidSearchQuery(pkg.order_number)
       ? `"${pkg.order_number}"`
       : null;
     if (!q) return { package: null, freshAccessToken };
@@ -548,12 +575,10 @@ async function resyncPackage(userTokens, pkg, tzOffsetMin) {
       const subject = h('Subject');
       const dateStr = h('Date');
       const snippet = decodeEntities(msg.data.snippet || '');
-      // Resync searches by thread_id or tracking/order number — emails are already
-      // strongly correlated. Only skip unknown senders if there's zero delivery signal.
-      if (h('List-Unsubscribe') && !isKnownDeliverySender(extractEmail(from))) {
-        if (!isPlausibleDelivery(subject, snippet)) continue;
-      }
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
+      // Full delivery validation: use body text too, not just subject+snippet.
+      // This prevents non-delivery emails from corrupting the package.
+      if (!isDeliveryEmail(subject, snippet, body)) continue;
       const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() }, tzOffsetMin);
       const fromEmail = extractEmail(from);
       const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
@@ -567,6 +592,7 @@ async function resyncPackage(userTokens, pkg, tzOffsetMin) {
         image_url: imageUrl,
         price,
         ...parsed,
+        from_address: decodeEntities(from),
         subject: decodeEntities(subject),
         snippet: snippet.slice(0, 500),
         received_date: dateStr ? new Date(dateStr).getTime() : Date.now(),

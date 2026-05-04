@@ -200,24 +200,26 @@ function extractProductImage(html) {
     const alt = altM ? altM[1].toLowerCase() : '';
     if (alt.includes('logo') || alt === 'brand' || alt === 'store') continue;
 
-    // Skip data URIs and tiny tracking pixels
+    // Parse dimensions if explicitly declared
     const wM = tag.match(/width=["']?(\d+)/i);
     const hM = tag.match(/height=["']?(\d+)/i);
-    const w = wM ? parseInt(wM[1]) : 999;
-    const h = hM ? parseInt(hM[1]) : 999;
-    if (w < 60 || h < 60) continue;
+    const w = wM ? parseInt(wM[1]) : null;
+    const h = hM ? parseInt(hM[1]) : null;
 
-    // HARD FILTER: skip anything bigger than 350px — those are lifestyle banners,
-    // not product thumbnails. Product images in order emails are 80-300px.
-    if (w > 350 || h > 350) continue;
+    // Skip tiny tracking pixels (only when dimensions are known)
+    if ((w !== null && w < 60) || (h !== null && h < 60)) continue;
 
-    // Skip extreme aspect ratios — logos are typically very wide or very tall
-    const aspect = w / h;
-    if (aspect > 4 || aspect < 0.25) continue;
+    // Skip lifestyle banners: anything explicitly declared >350px is a banner,
+    // not a product thumbnail. If dimensions are missing, we can't tell — keep it.
+    if ((w !== null && w > 350) || (h !== null && h > 350)) continue;
 
     // Score: prefer square-ish product photos (aspect near 1.0)
+    // When dimensions are unknown, use a neutral score based on URL patterns
+    const hasDims = w !== null && h !== null;
+    const aspect = hasDims ? w / h : 1;
     const aspectScore = 1 - Math.min(Math.abs(aspect - 1), 1);
-    candidates.push({ src, w, h, score: w * h * (1 + aspectScore) });
+    const sizeScore = hasDims ? w * h : 150 * 150; // neutral fallback
+    candidates.push({ src, w, h, score: sizeScore * (1 + aspectScore) });
   }
   if (!candidates.length) return null;
 
@@ -301,9 +303,13 @@ function extractBodyAndImage(payload) {
   const fullText = decodeEntities(texts.join(' '));
   const text = fullText.slice(0, 10000);
   // Extract order number from full text before truncation — order numbers can appear
-  // deep in Amazon/merchant emails beyond the truncation window
+  // deep in merchant emails beyond the truncation window
   const amazonOrderMatch = fullText.match(/\b(\d{3}-\d{7}-\d{7})\b/);
-  const orderNumberHint = amazonOrderMatch ? amazonOrderMatch[1] : null;
+  const genericOrderMatch = fullText.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)?[\s#:./-]+([A-Z0-9]{3,20})\b/i)
+    || fullText.match(/#([A-Z0-9]{3,20})\b/);
+  const orderNumberHint = amazonOrderMatch ? amazonOrderMatch[1]
+    : (genericOrderMatch && !/^(confirmed|placed|received|shipped|dispatched|delivered|update)$/i.test(genericOrderMatch[1])) ? genericOrderMatch[1]
+    : null;
   return {
     text,
     imageUrl: extractProductImage(rawHtml),

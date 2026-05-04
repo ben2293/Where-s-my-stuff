@@ -172,11 +172,12 @@ const ORDER_WORD_BLACKLIST = /^(confirmed|placed|received|shipped|dispatched|del
 
 function isValidOrderNumber(val) {
   if (!val || typeof val !== 'string') return false;
-  if (val.length < 5) return false;
+  if (val.length < 4) return false;
   if (!/\d/.test(val)) return false;
   if (ORDER_WORD_BLACKLIST.test(val)) return false;
   // Must look like an actual identifier: starts with letter or digit, no spaces
-  if (!/^[A-Za-z0-9][A-Za-z0-9\-_]+$/.test(val)) return false;
+  // Slashes allowed (e.g. "MD/26-27/709527")
+  if (!/^[A-Za-z0-9][A-Za-z0-9\-_/]+$/.test(val)) return false;
   return true;
 }
 
@@ -209,16 +210,16 @@ function extractOrderNumber(text, hint) {
   // 3. Explicit prefix required: order/booking/receipt + number/no/id/ref
   //    The prefix keyword is MANDATORY, not optional.
   //    "order number 12345", "order no 12345", "order id: ABC-123", "booking ref: XYZ789"
-  const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_]{5,20})\b/i);
+  const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_/]{4,25})\b/i);
   if (explicit && isValidOrderNumber(explicit[1])) return explicit[1];
 
   // 4. Hash shorthand: "order #12345", "order # 12345", "receipt #ABC-123"
   //    The # symbol acts as a strong delimiter when paired with order/booking/receipt.
-  const hashShorthand = text.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  const hashShorthand = text.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
   if (hashShorthand && isValidOrderNumber(hashShorthand[1])) return hashShorthand[1];
 
   // 5. Standalone hash: #XXXXX — only when it looks like an actual identifier
-  const hash = text.match(/#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  const hash = text.match(/#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
   if (hash && isValidOrderNumber(hash[1])) return hash[1];
 
   return null;

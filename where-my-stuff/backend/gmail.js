@@ -311,19 +311,19 @@ function extractBodyAndImage(payload) {
   const ORDER_HINT_BLACKLIST = /^(confirmed|placed|received|shipped|dispatched|delivered|update|processing|accepted|cancelled|canceled|payment|status|order|number|track|tracking|ref|id|has|been|will|your|this|that|with|from|for|and|the|are|you|not|but|can|had|her|was|one|our|out|day|get|him|his|how|its|may|new|now|old|see|two|who|boy|did|she|use|way|many|oil|sit|set|run|eat|far|sea|eye|ago|off|too|any|say|man|try|ask|end|why|let|put|come|here|just|like|long|make|over|such|take|than|them|well|were|what|have|they|know|want|good|much|some|time|very|tell)$/i;
 
   function looksLikeOrderNumber(v) {
-    if (!v || v.length < 5 || !/\d/.test(v) || ORDER_HINT_BLACKLIST.test(v)) return false;
-    if (!/^[A-Za-z0-9][A-Za-z0-9\-_]+$/.test(v)) return false;
+    if (!v || v.length < 4 || !/\d/.test(v) || ORDER_HINT_BLACKLIST.test(v)) return false;
+    if (!/^[A-Za-z0-9][A-Za-z0-9\-_/]+$/.test(v)) return false;
     return true;
   }
 
   // 1. Amazon format is unmistakable
   const amazonOrderMatch = fullText.match(/\b(\d{3}-\d{7}-\d{7})\b/);
   // 2. Explicit prefix + number keyword (e.g. "order number 12345", "order id: ABC")
-  const explicitMatch = fullText.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_]{5,20})\b/i);
+  const explicitMatch = fullText.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_/]{4,25})\b/i);
   // 3. Hash shorthand (e.g. "order #12345", "order # 12345")
-  const hashShorthandMatch = fullText.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  const hashShorthandMatch = fullText.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
   // 4. Standalone hash prefix (e.g. "#12345")
-  const hashMatch = fullText.match(/#\s*([A-Za-z0-9\-_]{5,20})\b/i);
+  const hashMatch = fullText.match(/#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
 
   const orderNumberHint = (amazonOrderMatch && looksLikeOrderNumber(amazonOrderMatch[1])) ? amazonOrderMatch[1]
     : (explicitMatch && looksLikeOrderNumber(explicitMatch[1])) ? explicitMatch[1]
@@ -389,14 +389,14 @@ function countTokens(text, tokens) {
   return count;
 }
 
-// Pre-body filter: subject + snippet only. We need at least 2 hits from either
-// bucket to keep an email for further parsing. This is lenient because the
-// Gmail query already narrowed the set.
+// Pre-body filter: subject + snippet only.
+// Gmail already narrowed by subject keywords (order, purchase, confirmed, etc.).
+// We only need 1 signal to proceed — the body will be checked next.
 function isPlausibleDelivery(subject = '', snippet = '') {
   const text = `${subject} ${snippet}`;
   const ecom = countTokens(text, ECOMM_TOKENS);
   const logi = countTokens(text, LOGISTICS_TOKENS);
-  return (ecom >= 2) || (logi >= 1) || (ecom >= 1 && logi >= 1);
+  return (ecom >= 1) || (logi >= 1);
 }
 
 // Post-body filter: full text. Same buckets, same thresholds, but with body
@@ -533,7 +533,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
 
 function isValidSearchQuery(val) {
   if (!val || typeof val !== 'string') return false;
-  if (val.length < 5) return false;
+  if (val.length < 4) return false;
   if (!/\d/.test(val)) return false;
   if (/^(confirmed|placed|received|shipped|dispatched|delivered|update|processing|accepted|cancelled|canceled|payment|status|order|number|track|tracking)$/i.test(val)) return false;
   return true;

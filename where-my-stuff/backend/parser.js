@@ -314,19 +314,19 @@ function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOff
 const PLATFORM_DOMAINS = new Set(['Shopify', 'Unknown']);
 
 // ─── Confidence gate ────────────────────────────────────────────────────────
-// Determines whether regex extraction is solid enough to skip Haiku.
+// "When you're not sure, use Haiku to confirm. Be frugal — skip only when
+//  the source is trusted and the signal is unambiguous."
 //
-// SKIP Haiku (regex is enough):
-//   - Known carrier sender + valid tracking number (carrier emails are always delivery)
-//   - Known merchant (NOT a platform like Shopify) + valid order number with stage
-//   - Any sender with valid tracking number (tracking = strong logistics signal)
-//   - Finished (stage 5+) package with an identifier from any source
+// SKIP Haiku (trusted sources, strong signals):
+//   - Known carrier (Delhivery, BlueDart, etc.) + valid tracking
+//   - Known merchant (Amazon, Flipkart, Myntra, etc.) + valid order number
+//   - Finished package (stage 5+) + any valid identifier from any source
 //
-// SEND to Haiku (needs verification):
-//   - No stage detected at all
-//   - Platform sender (Shopify, WooCommerce) — needs Haiku for store/product name
-//   - Domain-derived merchant (not in MERCHANT_FROM) — Haiku verifies it's real
-//   - Active package without a solid identifier
+// SEND to Haiku (unknown sources need verification, regardless of signals):
+//   - Unknown/domain-derived merchant — even with order # and stage
+//   - Platform sender (Shopify) — needs real store name + product
+//   - Any email with no stage detected
+//   - Active packages from non-trusted sources
 //
 function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate }) {
   if (!stageResult) return false;
@@ -334,36 +334,29 @@ function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber,
   const hasValidTracking = isValidTrackingNumber(trackingNumber);
   const hasValidOrder = isValidOrderNumber(orderNumber);
 
-  // Platform senders (Shopify, etc.) always need Haiku for store name + product info
+  // Platform senders always need Haiku for store name + product
   if (PLATFORM_DOMAINS.has(merchant)) return false;
 
-  // Check if merchant is from MERCHANT_FROM (reliable) vs domain-derived (unreliable)
   const isKnownMerchant = MERCHANT_FROM.some(m => m.name === merchant);
+  const isKnownCarrier = CARRIER_MAP.some(c => c.name === carrier);
 
-  // Finished packages (delivered/returned): keep if we have an identifier
+  // Finished packages (delivered/returned): keep if we have any identifier
   if (stageResult.stage >= 5) {
-    if (carrier && hasValidTracking) return true;
-    if (isKnownMerchant && hasValidOrder) return true;
-    if (hasValidTracking) return true;
-    if (hasValidOrder) return true;
+    if (hasValidTracking || hasValidOrder) return true;
     return false;
   }
 
   // Active packages (stages 0-4)
-  // Rule 1: Carrier emails with tracking are the most reliable signal — keep immediately
-  if (carrier && hasValidTracking) return true;
+  // ONLY skip Haiku for trusted senders with unambiguous signals.
+  // Everyone else → Haiku confirms it's real, not marketing/spam.
 
-  // Rule 2: Any sender with valid tracking — tracking is a strong logistics signal
-  if (hasValidTracking) return true;
+  // Trusted: known carrier + valid tracking
+  if (isKnownCarrier && hasValidTracking) return true;
 
-  // Rule 3: Known merchant with valid order AND expected date — reliable, skip Haiku
-  if (isKnownMerchant && hasValidOrder && expectedDate) return true;
-
-  // Rule 4: Known merchant with valid order — reliable, skip Haiku
-  //         (even without expected date; can be filled by resync later)
+  // Trusted: known merchant + valid order number
   if (isKnownMerchant && hasValidOrder) return true;
 
-  // For domain-derived merchants or platform senders: always send to Haiku
+  // Unknown source (domain-derived merchant, new brand, etc.) — Haiku verifies
   return false;
 }
 

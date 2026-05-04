@@ -136,6 +136,10 @@ const DELIVERY_QUERY = [
   'subject:waybill',
   'subject:dispatch',
   'subject:consignment',
+  'subject:receipt',
+  'subject:payment',
+  'subject:courier',
+  'subject:arriving',
 ].join(' OR ');
 
 function createOAuthClient() {

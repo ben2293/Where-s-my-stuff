@@ -178,7 +178,6 @@ function extractProductImage(html) {
   if (!html) return null;
 
   // Truncate at promotional sections — only scan the order-summary portion of the email.
-  // Everything after "Related products", "You might also like", etc. is promotional noise.
   const PROMO_SPLITTER = /related\s+products|you\s+might\s+also\s+like|recommended\s+for\s+you|customers\s+also\s+bought|complete\s+your\s+purchase|more\s+items\s+to\s+consider|based\s+on\s+your\s+viewing/i;
   const promoMatch = html.match(PROMO_SPLITTER);
   const scanHtml = promoMatch ? html.slice(0, promoMatch.index) : html;
@@ -207,6 +206,10 @@ function extractProductImage(html) {
     const w = wM ? parseInt(wM[1]) : 999;
     const h = hM ? parseInt(hM[1]) : 999;
     if (w < 60 || h < 60) continue;
+
+    // HARD FILTER: skip anything bigger than 350px — those are lifestyle banners,
+    // not product thumbnails. Product images in order emails are 80-300px.
+    if (w > 350 || h > 350) continue;
 
     // Skip extreme aspect ratios — logos are typically very wide or very tall
     const aspect = w / h;
@@ -241,7 +244,6 @@ function extractProductImage(html) {
     /(?:^|\.)(?:images?|img|cdn|static|media|assets)\./i,
   ];
   for (const pattern of CDN_PRIORITY) {
-    // Among matching CDN images, pick the one with highest score (size + aspect)
     const matches = candidates.filter(c => pattern.test(c.src));
     if (matches.length) {
       matches.sort((a, b) => b.score - a.score);

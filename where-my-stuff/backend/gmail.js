@@ -79,47 +79,11 @@ const TRUSTED_DELIVERY_SENDERS = new Set([
   'updates@myntra.com',
 ]);
 
+// Smart query — purely content-based, zero domain dependency.
+// These subject keywords catch ANY order/tracking email from ANY sender.
+// No domain whitelists. Amazon, Flipkart, Shopify D2C, carrier — all caught
+// by what's in the subject line, not who sent it.
 const DELIVERY_QUERY = [
-  // Major Indian marketplaces — catch-all bare domains for subdomain matching
-  'from:amazon.in',
-  'from:amazon.com',
-  'from:flipkart.com',
-  'from:myntra.com',
-  'from:meesho.com',
-  // Carriers
-  'from:@delhivery.com',
-  'from:@bluedart.com',
-  'from:@ekartlogistics.com',
-  'from:@xpressbees.com',
-  'from:@shadowfax.in',
-  'from:@ecomexpress.in',
-  'from:@dtdc.in',
-  'from:@dtdc.com',
-  'from:@shiprocket.in',
-  'from:@shiprocket.com',
-  // Quick commerce
-  'from:@swiggy.in',
-  'from:@swiggy.com',
-  'from:@blinkit.com',
-  'from:@zepto.team',
-  'from:@bigbasket.com',
-  // Fashion / lifestyle / pharma
-  'from:@nykaa.com',
-  'from:@nykaafashion.com',
-  'from:@ajio.com',
-  'from:@mamaearth.in',
-  'from:@firstcry.com',
-  'from:@lenskart.com',
-  'from:@tatacliq.com',
-  'from:@snapdeal.com',
-  'from:@pharmeasy.in',
-  'from:@netmeds.com',
-  'from:@1mg.com',
-  'from:@boat-lifestyle.com',
-  // Shopify + WooCommerce — catches 90% of D2C brands (Lagavi, Miduty, etc.)
-  'from:myshopify.com',
-  'from:@shopifyemail.com',
-  // Broad subject keywords — sender-agnostic catch-all for unknown brands
   'subject:order',
   'subject:shipped',
   'subject:dispatched',
@@ -140,6 +104,10 @@ const DELIVERY_QUERY = [
   'subject:payment',
   'subject:courier',
   'subject:arriving',
+  'subject:status',
+  'subject:update',
+  'subject:details',
+  'subject:confirmation',
 ].join(' OR ');
 
 function createOAuthClient() {

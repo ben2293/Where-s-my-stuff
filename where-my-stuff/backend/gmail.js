@@ -17,6 +17,17 @@ const KNOWN_DELIVERY_DOMAINS = new Set([
   'delhivery.com', 'bluedart.com', 'dtdc.in', 'dtdc.com', 'xpressbees.com',
   'shadowfax.in', 'ecomexpress.in', 'shiprocket.in',
   'lagavi.in', 'lagavi.com',
+  'miduty.in', 'miduty.com',
+  'lazyfilms.in', 'lazyfilms.com',
+  'firstcry.com', 'purplle.com', 'bewakoof.com', 'limeroad.com',
+  'shoppersstop.com', 'pepperfry.com', 'fabindia.com', 'manyavar.com',
+  'sugarcosmetics.com', 'wow-skinscience.in', 'mcmg.in',
+  'thesouledstore.com', 'bombayshavingcompany.com', 'mokobara.com',
+  'headphonezone.in', 'vedantcomputers.com', 'mdcomputers.in',
+  'thesleepcompany.in', 'sleepyowl.co', 'blue-tokai.com',
+  'dhl.com', 'fedex.com', 'ups.com', 'usps.com',
+  'aramex.com', 'indiapost.gov.in',
+  'shopifyemail.com', 'myshopify.com', 'shopify.com',
 ]);
 
 function isKnownDeliverySender(email) {
@@ -69,67 +80,62 @@ const TRUSTED_DELIVERY_SENDERS = new Set([
 ]);
 
 const DELIVERY_QUERY = [
-  // Amazon — bare domain (no @) matches all subdomains: email.amazon.in, m.amazon.in, etc.
+  // Major Indian marketplaces — catch-all bare domains for subdomain matching
   'from:amazon.in',
   'from:amazon.com',
-  // Flipkart / Ekart
-  'from:@flipkart.com',
-  'from:@ekartlogistics.com',
-  // Fashion / lifestyle
-  'from:@myntra.com',
-  'from:@nykaa.com',
-  'from:@nykaafashion.com',
-  'from:@meesho.com',
-  'from:@ajio.com',
-  'from:@zara.com',
-  'from:@hm.com',
-  'from:@mango.com',
-  'from:@puma.com',
-  'from:@nike.com',
-  'from:@adidas.com',
-  'from:@lenskart.com',
-  'from:@decathlon.in',
-  // Electronics
-  'from:@croma.com',
-  'from:@reliancedigital.in',
-  'from:@boat-lifestyle.com',
-  'from:@gonoise.com',
-  'from:@apple.com',
-  // Grocery / quick commerce
-  'from:@swiggy.in',
-  'from:@swiggy.com',
-  'from:@blinkit.com',
-  'from:@grofers.com',
-  'from:@zepto.team',
-  'from:@bigbasket.com',
-  // Pharma
-  'from:@netmeds.com',
-  'from:@pharmeasy.in',
-  'from:@1mg.com',
-  // Other marketplaces
-  'from:@snapdeal.com',
-  'from:@tatacliq.com',
-  'from:@mamaearth.in',
+  'from:flipkart.com',
+  'from:myntra.com',
+  'from:meesho.com',
   // Carriers
   'from:@delhivery.com',
   'from:@bluedart.com',
-  'from:@dtdc.in',
-  'from:@dtdc.com',
+  'from:@ekartlogistics.com',
   'from:@xpressbees.com',
   'from:@shadowfax.in',
   'from:@ecomexpress.in',
+  'from:@dtdc.in',
+  'from:@dtdc.com',
   'from:@shiprocket.in',
-  // Broad subject keywords — cast a wide net, Haiku filters false positives
+  'from:@shiprocket.com',
+  // Quick commerce
+  'from:@swiggy.in',
+  'from:@swiggy.com',
+  'from:@blinkit.com',
+  'from:@zepto.team',
+  'from:@bigbasket.com',
+  // Fashion / lifestyle / pharma
+  'from:@nykaa.com',
+  'from:@nykaafashion.com',
+  'from:@ajio.com',
+  'from:@mamaearth.in',
+  'from:@firstcry.com',
+  'from:@lenskart.com',
+  'from:@tatacliq.com',
+  'from:@snapdeal.com',
+  'from:@pharmeasy.in',
+  'from:@netmeds.com',
+  'from:@1mg.com',
+  'from:@boat-lifestyle.com',
+  // Shopify + WooCommerce — catches 90% of D2C brands (Lagavi, Miduty, etc.)
+  'from:myshopify.com',
+  'from:@shopifyemail.com',
+  // Broad subject keywords — sender-agnostic catch-all for unknown brands
   'subject:order',
-  'subject:purchase',
-  'subject:confirmed',
   'subject:shipped',
   'subject:dispatched',
   'subject:delivered',
   'subject:delivery',
-  'subject:shipment',
   'subject:tracking',
+  'subject:shipment',
   'subject:invoice',
+  'subject:confirmed',
+  'subject:purchase',
+  'subject:awb',
+  'subject:package',
+  'subject:parcel',
+  'subject:waybill',
+  'subject:dispatch',
+  'subject:consignment',
 ].join(' OR ');
 
 function createOAuthClient() {
@@ -366,17 +372,43 @@ function isUserBlocked(from, subject, userBlocks) {
 // one bucket. This catches unknown D2C brands, Shopify stores, and indie
 // sellers without whitelisting domains or pattern-matching subject lines.
 
+// Indian e-commerce vocabulary — the tokens that appear in order confirmations,
+// shipping notifications, and delivery updates from any Indian seller.
+// These are sender-agnostic: they work for Amazon, Flipkart, Shopify D2C,
+// WooCommerce stores, carrier tracking pages, and handwritten invoice PDFs.
 const ECOMM_TOKENS = [
+  // Universal order signals
   'order', 'purchase', 'confirmed', 'placed', 'receipt', 'invoice',
-  'total', 'amount', 'paid', 'billing address', 'shipping address',
-  'subtotal', 'discount', 'cart', 'checkout', 'order summary',
+  'total', 'amount', 'paid', 'subtotal', 'discount', 'cart', 'checkout',
+  'order summary', 'order details', 'order status',
+  'thank you for', 'thanks for your', 'view your order',
+  // Payment signals (India-specific)
+  'payment', 'transaction', 'cod', 'cash on delivery',
+  'upi', 'phonepe', 'paytm', 'google pay', 'net banking',
+  'rupees', 'inr', 'gst', 'gstin', 'mrp',
+  // Item signals
+  'item', 'items', 'price', 'qty', 'quantity', 'sku',
+  // Indian shipping address signals
+  'shipping address', 'billing address', 'pincode', 'pin code',
 ];
 
 const LOGISTICS_TOKENS = [
+  // Universal logistics
   'shipped', 'dispatched', 'delivered', 'delivery', 'tracking',
-  'shipment', 'awb', 'waybill', 'courier', 'out for delivery',
-  'in transit', 'arriving', 'expected by', 'estimated delivery',
-  'rto', 'return to origin', 'pickup scheduled',
+  'shipment', 'courier', 'out for delivery', 'in transit',
+  'arriving', 'expected by', 'estimated delivery', 'pickup scheduled',
+  'parcel', 'package', 'consignment', 'carrier',
+  'on the way', 'on its way', 'ofd', 'out for',
+  'reached', 'hub', 'facility', 'sorting', 'departed',
+  'arrival', 'departure', 'picked up', 'manifest',
+  // India-specific logistics terms
+  'awb', 'waybill', 'docket', 'lr number', 'forwarding number',
+  'rto', 'return to origin', 'returned to sender',
+  'dispatched via', 'shipped via', 'booked via',
+  // Indian carrier names in body text
+  'delhivery', 'bluedart', 'dtdc', 'ekart', 'xpressbees',
+  'shadowfax', 'ecom express', 'india post', 'speed post',
+  'shiprocket', 'pickrr', 'clickpost', 'nimbuspost',
 ];
 
 function countTokens(text, tokens) {
@@ -391,22 +423,66 @@ function countTokens(text, tokens) {
 
 // Pre-body filter: subject + snippet only.
 // Gmail already narrowed by subject keywords (order, purchase, confirmed, etc.).
-// We only need 1 signal to proceed — the body will be checked next.
+// Goal: catch ANY email that could be a real order — from any sender, any domain.
+// Strategy: vocabulary tokens OR identifier patterns (order #, tracking #, etc.).
+//
+// Identifier patterns are the strongest signal — an "Order #XXXX" in the subject
+// from an unknown D2C brand is a dead giveaway, even without standardized vocabulary.
 function isPlausibleDelivery(subject = '', snippet = '') {
   const text = `${subject} ${snippet}`;
   const ecom = countTokens(text, ECOMM_TOKENS);
   const logi = countTokens(text, LOGISTICS_TOKENS);
-  return (ecom >= 1) || (logi >= 1);
+  if (ecom >= 1 || logi >= 1) return true;
+  // No vocab tokens matched — still check for raw identifier patterns.
+  // Many D2C/Shopify stores use subjects like "Lagavi — Your order details #LG1234"
+  // where the hash is the only machine-recognizable signal.
+  return hasIdentifierPattern(text);
+}
+
+// Quick scan for order/tracking number patterns in text.
+// Catches #XXXX, order no XXXX, tracking #XXXX, AWB XXXX, etc.
+// No domain knowledge needed — just structural patterns.
+function hasIdentifierPattern(text) {
+  // Standalone hash prefix: #XXXX, #XXXX-YYYY, #ABC-123
+  if (/#\s*[A-Za-z0-9\-_/]{4,25}/i.test(text)) return true;
+  // Explicit order keywords + any alphanumeric identifier nearby
+  if (/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+[A-Za-z0-9]/i.test(text)) return true;
+  // Tracking/AWB/waybill patterns
+  if (/\b(?:tracking|awb|waybill|consignment|docket|lr)[\s#:./-]*(?:number|no|id)?[\s#:./-]*[A-Z0-9]/i.test(text)) return true;
+  // Standard tracking number format: 2-4 uppercase letters + 6-16 digits
+  if (/\b[A-Z]{2,4}\d{6,16}\b/.test(text)) return true;
+  // Amazon order format: 000-0000000-0000000
+  if (/\b\d{3}-\d{7}-\d{7}\b/.test(text)) return true;
+  return false;
 }
 
 // Post-body filter: full text. Same buckets, same thresholds, but with body
 // content included so compound phrases like "shipping address" or
 // "out for delivery" actually match.
+//
+// India-specific: ₹ (rupee symbol) near order/payment text is a unique
+// Indian ecom signal that generic spam/marketing doesn't have.
 function isDeliveryEmail(subject = '', snippet = '', body = '') {
   const text = `${subject} ${snippet} ${body.slice(0, 3000)}`;
   const ecom = countTokens(text, ECOMM_TOKENS);
   const logi = countTokens(text, LOGISTICS_TOKENS);
-  return (ecom >= 2) || (logi >= 2) || (ecom >= 1 && logi >= 1);
+
+  // Standard thresholds
+  if (ecom >= 2 || logi >= 2 || (ecom >= 1 && logi >= 1)) return true;
+
+  // India-specific: ₹ (rupee symbol) + order signals = strong Indian ecom
+  const hasRupee = /₹|rs\.?\s*\d|inr\s*\d/i.test(text);
+  if (hasRupee && ecom >= 1) return true;
+
+  // India-specific: GST + any delivery signal
+  const hasGst = /gst(?:in| number| invoice)?/i.test(text);
+  if (hasGst && (ecom >= 1 || logi >= 1)) return true;
+
+  // India-specific: AWB/waybill/docket alone is a strong logistics signal
+  const hasAwb = /\b(?:awb|waybill|docket|lr)\s*(?:no|num|number|#)?[.\s]*\d/i.test(text);
+  if (hasAwb && logi >= 1) return true;
+
+  return false;
 }
 
 async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
@@ -486,20 +562,31 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
   const parsed = await parseEmailsBatch(parseInputs, tzOffsetMin);
 
   // Step 3: assemble results and apply sender-based stage floors
-  // REQUIREMENT: every package MUST have an order number OR tracking number.
-  // This filters out promotional emails, social notifications, and deal spam
-  // that happen to contain e-commerce vocabulary.
+  // An identifier (order number or tracking number) is the STRONGEST signal but not
+  // the ONLY one. D2C/Shopify stores often use non-standard order formats or hide
+  // identifiers in images. Rejecting them at the gate drops legitimate packages.
+  // Instead, use a multi-signal approach: identifier > trusted sender > stage > body tokens.
   const hasIdentifier = (r) =>
     !!r.trackingNumber || !!(r.orderNumber && r.orderNumber.length >= 3);
 
   const isDelivery = (r, body = '') => {
-    if (!hasIdentifier(r)) return false;
-    if (TRUSTED_DELIVERY_SENDERS.has(r.from_address)) return true;
+    // Strong signal: has a tracking number or valid order number
     if (r.trackingNumber) return true;
     if (r.orderNumber && r.orderNumber.length >= 3) return true;
+
+    // Known delivery senders are always relevant
+    if (TRUSTED_DELIVERY_SENDERS.has(r.from_address)) return true;
+    if (isKnownDeliverySender(r.from_address)) return true;
+
+    // Haiku-detected stage > 0 (dispatched/in transit/delivered) is a strong logistics signal
     if (r.stage > 0) return true;
-    if (r.stage === 0 && r.orderNumber) return true;
+
+    // Stage 0 (ordered) with no identifier — needs body evidence
+    if (r.stage === 0 && isDeliveryEmail(r.subject, r.snippet, body)) return true;
+
+    // Any other unclassified email that still has delivery vocabulary
     if (isDeliveryEmail(r.subject, r.snippet, body)) return true;
+
     return false;
   };
 

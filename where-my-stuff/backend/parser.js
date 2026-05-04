@@ -99,12 +99,20 @@ const MERCHANT_FROM = [
   { name: 'AJIO',            re: /@(?:[a-z0-9-]+\.)?ajio\.com\b/i },
   { name: 'Swiggy',          re: /@(?:[a-z0-9-]+\.)?swiggy\.(in|com)\b/i },
   { name: 'Blinkit',         re: /@(?:[a-z0-9-]+\.)?(?:blinkit|grofers)\.com\b/i },
+  { name: 'Zepto',           re: /@(?:[a-z0-9-]+\.)?zepto\.(?:team|in)\b/i },
   { name: 'BigBasket',       re: /@(?:[a-z0-9-]+\.)?bigbasket\.com\b/i },
   { name: 'Tata Cliq',       re: /@(?:[a-z0-9-]+\.)?tatacliq\.com\b/i },
   { name: 'Snapdeal',        re: /@(?:[a-z0-9-]+\.)?snapdeal\.com\b/i },
+  { name: '1mg',             re: /@(?:[a-z0-9-]+\.)?1mg\.com\b/i },
+  { name: 'Pharmeasy',       re: /@(?:[a-z0-9-]+\.)?pharmeasy\.in\b/i },
+  { name: 'Netmeds',         re: /@(?:[a-z0-9-]+\.)?netmeds\.com\b/i },
+  { name: 'Lenskart',        re: /@(?:[a-z0-9-]+\.)?lenskart\.com\b/i },
+  { name: 'Mamaearth',       re: /@(?:[a-z0-9-]+\.)?mamaearth\.in\b/i },
+  { name: 'FirstCry',        re: /@(?:[a-z0-9-]+\.)?firstcry\.com\b/i },
   { name: 'Apple',           re: /@(?:[a-z0-9-]+\.)?apple\.com\b/i },
   { name: 'Raspberry Pi',    re: /@(?:[a-z0-9-]+\.)?raspberrypi\.(?:com|org)\b/i },
-  { name: 'Shopify',         re: /@(?:[a-z0-9-]+\.)?shopifyemail\.com\b/i },
+  // Platform senders — the domain is NOT the merchant. Haiku extracts the real store name.
+  { name: 'Shopify',         re: /@(?:[a-z0-9-]+\.)?(?:shopifyemail|myshopify|shopify)\.com\b/i },
 ];
 
 // Domains that are shipping carriers — NOT merchants.
@@ -116,8 +124,10 @@ const CARRIER_DOMAINS = [
   /@(?:[a-z0-9-]+\.)?xpressbees\.com\b/i,
   /@(?:[a-z0-9-]+\.)?shadowfax\.in\b/i,
   /@(?:[a-z0-9-]+\.)?ecomexpress\.in\b/i,
-  /@(?:[a-z0-9-]+\.)?shiprocket\.in\b/i,
+  /@(?:[a-z0-9-]+\.)?shiprocket\.(in|com)\b/i,
+  /@(?:[a-z0-9-]+\.)?pickrr\.com\b/i,
   /@(?:[a-z0-9-]+\.)?dtdc\.(in|com)\b/i,
+  /@(?:[a-z0-9-]+\.)?indiapost\.gov\.in\b/i,
   /@(?:[a-z0-9-]+\.)?shiptrackr\.(in|com)\b/i,
   /@(?:[a-z0-9-]+\.)?track\.[a-z]+\.(in|com)\b/i,
   /@(?:[a-z0-9-]+\.)? Shiprocket\.com\b/i,
@@ -150,16 +160,37 @@ function isCarrierSender(from) {
 const TRACKING_BLACKLIST = /^(number|no|id|code|ref|reference)$/i;
 
 const TRACKING_PATTERNS = [
+  // Explicit AWB/waybill prefix (very common in Indian logistics)
   /\bAWB\s*N[o°]?[\s#.:-]+([A-Z0-9]{6,20})\b/i,
   /\b(?:awb|waybill)[\s#.:-]+([A-Z0-9\-]{6,25})\b/i,
-  /\btracking[\s#:./-]*(?:(?:number|no|id)[\s#:./-]+)?([A-Z0-9\-]{6,25})\b/i,
-  /\b([A-Z]{2,4}\d{9,16})\b/,
+  // Tracking/consignment/docket with optional number/no/id
+  /\b(?:tracking|consignment|docket|lr|reference)[\s#:./-]*(?:number|no|id|num)?[\s#:./-]+([A-Z0-9\-]{6,25})\b/i,
+  // Standard Indian tracking format: 2-4 uppercase letters + 6-16 digits (Ekart: FM... / Xpressbees: XP...)
+  /\b([A-Z]{2,4}\d{6,16})\b/,
+  // India Post / Speed Post format: 2 letters + 9 digits + 2 letters (e.g., EM123456789IN)
+  /\b([A-Z]{2}\d{9}[A-Z]{2})\b/,
+  // All-numeric tracking (Delhivery, BlueDart, DTDC, Amazon): 8-20 digit numeric
+  /\b(\d{10,20})\b/,
 ];
 
 function extractTracking(text) {
-  for (const re of TRACKING_PATTERNS) {
+  // Try structured patterns first (explicit labels or known formats)
+  for (const re of TRACKING_PATTERNS.slice(0, -1)) {
     const m = text.match(re);
     if (m && !TRACKING_BLACKLIST.test(m[1])) return m[1];
+  }
+  // Last pattern: all-numeric 10-20 digits. Only extract if near a tracking keyword
+  // (AWB, waybill, tracking, courier, docket, LR, consignment) to avoid matching
+  // phone numbers, order totals, timestamps, etc.
+  const numericPattern = TRACKING_PATTERNS[TRACKING_PATTERNS.length - 1];
+  const m = text.match(numericPattern);
+  if (m && !TRACKING_BLACKLIST.test(m[1])) {
+    // Check if this number appears near tracking vocabulary (within ~50 chars)
+    const idx = m.index;
+    const context = text.slice(Math.max(0, idx - 50), idx + m[0].length + 50);
+    if (/\b(?:awb|waybill|tracking|shipment|courier|docket|consignment|lr|delivery|dispatch)\b/i.test(context)) {
+      return m[1];
+    }
   }
   return null;
 }
@@ -207,20 +238,26 @@ function extractOrderNumber(text, hint) {
   const amazon = text.match(/\b(\d{3}-\d{7}-\d{7})\b/);
   if (amazon && isValidOrderNumber(amazon[1])) return amazon[1];
 
-  // 3. Explicit prefix required: order/booking/receipt + number/no/id/ref
-  //    The prefix keyword is MANDATORY, not optional.
-  //    "order number 12345", "order no 12345", "order id: ABC-123", "booking ref: XYZ789"
-  const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|id|ref(?:erence)?)[\s#:./-]+([A-Za-z0-9\-_/]{4,25})\b/i);
+  // 3. Explicit prefix + keyword: "order number 12345", "Order No. 12345",
+  //    "Order ID: ABC-123", "booking ref XYZ789", "order number:12345" etc.
+  //    Handles all spacing/punctuation: "order  no :  12345" → matches
+  const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|num|id|ref(?:erence)?)[.\s#:/-]*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (explicit && isValidOrderNumber(explicit[1])) return explicit[1];
 
-  // 4. Hash shorthand: "order #12345", "order # 12345", "receipt #ABC-123"
-  //    The # symbol acts as a strong delimiter when paired with order/booking/receipt.
-  const hashShorthand = text.match(/\b(?:order|booking|receipt)\s*#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
+  // 4. Hash shorthand with optional spacing: "order#1234", "order # 1234",
+  //    "order #12345", "receipt #ABC-123", "booking #XYZ789"
+  const hashShorthand = text.match(/\b(?:order|booking|receipt|ref)\s*#*?\s*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (hashShorthand && isValidOrderNumber(hashShorthand[1])) return hashShorthand[1];
 
-  // 5. Standalone hash: #XXXXX — only when it looks like an actual identifier
-  const hash = text.match(/#\s*([A-Za-z0-9\-_/]{4,25})\b/i);
+  // 5. Standalone hash: "#XXXXX" — strong signal when it looks like an identifier
+  const hash = text.match(/#\s*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (hash && isValidOrderNumber(hash[1])) return hash[1];
+
+  // 6. Loose "Order" keyword + nearby alphanumeric — for D2C formats like
+  //    "Lagavi — Your order details: LG123456" or "Order ABC-XYZ confirmed"
+  //    This is the catch-all for non-standard D2C/Shopify order formats.
+  const loose = text.match(/\b(?:order|booking)[^.!?\n]{0,60}?\b([A-Za-z]{1,4}[\s\-_]?\d{3,12})\b/i);
+  if (loose && isValidOrderNumber(loose[1].replace(/[\s\-_]/g, '-'))) return loose[1].replace(/[\s\-_]/g, '-');
 
   return null;
 }
@@ -241,13 +278,16 @@ function extractExpectedDate(text, receivedMs, tzOffsetMin) {
 // ─── Fast regex pass ───────────────────────────────────────────────────────
 
 const CARRIER_MAP = [
-  { name: 'Delhivery',    re: /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i },
-  { name: 'BlueDart',     re: /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i },
-  { name: 'Ekart',        re: /@(?:[a-z0-9-]+\.)?ekartlogistics\.com\b/i },
-  { name: 'XpressBees',   re: /@(?:[a-z0-9-]+\.)?xpressbees\.com\b/i },
-  { name: 'Shadowfax',   re: /@(?:[a-z0-9-]+\.)?shadowfax\.in\b/i },
-  { name: 'Ecom Express', re: /@(?:[a-z0-9-]+\.)?ecomexpress\.in\b/i },
-  { name: 'DTDC',         re: /@(?:[a-z0-9-]+\.)?dtdc\.(in|com)\b/i },
+  { name: 'Delhivery',     re: /@(?:[a-z0-9-]+\.)?delhivery\.com\b/i },
+  { name: 'BlueDart',      re: /@(?:[a-z0-9-]+\.)?bluedart\.com\b/i },
+  { name: 'Ekart',         re: /@(?:[a-z0-9-]+\.)?ekartlogistics\.com\b/i },
+  { name: 'XpressBees',    re: /@(?:[a-z0-9-]+\.)?xpressbees\.com\b/i },
+  { name: 'Shadowfax',     re: /@(?:[a-z0-9-]+\.)?shadowfax\.in\b/i },
+  { name: 'Ecom Express',  re: /@(?:[a-z0-9-]+\.)?ecomexpress\.in\b/i },
+  { name: 'DTDC',          re: /@(?:[a-z0-9-]+\.)?dtdc\.(in|com)\b/i },
+  { name: 'India Post',    re: /@(?:[a-z0-9-]+\.)?indiapost\.gov\.in\b/i },
+  { name: 'Shiprocket',    re: /@(?:[a-z0-9-]+\.)?shiprocket\.(in|com)\b/i },
+  { name: 'Pickrr',        re: /@(?:[a-z0-9-]+\.)?pickrr\.com\b/i },
   { name: 'Amazon Logistics', re: /@(?:[a-z0-9-]+\.)?amazon\.(in|com)\b/i },
 ];
 
@@ -269,60 +309,98 @@ function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOff
   return { stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate };
 }
 
+// Platform domains — the merchant field will say "Shopify" but the real
+// store name needs Haiku extraction. These should never skip Haiku.
+const PLATFORM_DOMAINS = new Set(['Shopify', 'Unknown']);
+
 // ─── Confidence gate ────────────────────────────────────────────────────────
-// Default: GO TO HAIKU. Only skip Haiku when regex extraction is 100% solid.
+// Determines whether regex extraction is solid enough to skip Haiku.
 //
-// Why? Regex can match stage keywords in marketing emails, digest summaries,
-// or unrelated contexts. Haiku reads the actual content and confirms.
+// SKIP Haiku (regex is enough):
+//   - Known carrier sender + valid tracking number (carrier emails are always delivery)
+//   - Known merchant (NOT a platform like Shopify) + valid order number with stage
+//   - Any sender with valid tracking number (tracking = strong logistics signal)
+//   - Finished (stage 5+) package with an identifier from any source
 //
-// Solid signals (skip Haiku):
-//   - Known carrier sender + valid tracking number
-//   - Known merchant sender + valid order number
-//   - Unambiguous stage from a trusted domain
+// SEND to Haiku (needs verification):
+//   - No stage detected at all
+//   - Platform sender (Shopify, WooCommerce) — needs Haiku for store/product name
+//   - Domain-derived merchant (not in MERCHANT_FROM) — Haiku verifies it's real
+//   - Active package without a solid identifier
 //
-// Ambiguous → Haiku:
-//   - Unknown sender with just a stage keyword
-//   - No identifier extracted
-//   - Active package (needs accurate expected date anyway)
-//
-function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber, orderNumber }) {
+function isConfidentExtraction({ stageResult, merchant, carrier, trackingNumber, orderNumber, expectedDate }) {
   if (!stageResult) return false;
 
-  // Active packages always need Haiku for accurate expected dates + context
-  if (stageResult.stage >= 0 && stageResult.stage <= 4) return false;
+  const hasValidTracking = isValidTrackingNumber(trackingNumber);
+  const hasValidOrder = isValidOrderNumber(orderNumber);
 
-  // Finished packages (5+): only skip Haiku with strong signals
+  // Platform senders (Shopify, etc.) always need Haiku for store name + product info
+  if (PLATFORM_DOMAINS.has(merchant)) return false;
+
+  // Check if merchant is from MERCHANT_FROM (reliable) vs domain-derived (unreliable)
+  const isKnownMerchant = MERCHANT_FROM.some(m => m.name === merchant);
+
+  // Finished packages (delivered/returned): keep if we have an identifier
   if (stageResult.stage >= 5) {
-    // Must have a real identifier
-    const hasValidTracking = isValidTrackingNumber(trackingNumber);
-    const hasValidOrder = isValidOrderNumber(orderNumber);
-    if (!hasValidTracking && !hasValidOrder) return false;
-
-    // Strong signal: known carrier domain + tracking number
     if (carrier && hasValidTracking) return true;
-
-    // Strong signal: known merchant + order number
-    if (merchant && merchant !== 'Unknown' && hasValidOrder) return true;
-
-    // Weak signal: unknown sender with just an identifier → ambiguous, Haiku confirms
+    if (isKnownMerchant && hasValidOrder) return true;
+    if (hasValidTracking) return true;
+    if (hasValidOrder) return true;
     return false;
   }
 
+  // Active packages (stages 0-4)
+  // Rule 1: Carrier emails with tracking are the most reliable signal — keep immediately
+  if (carrier && hasValidTracking) return true;
+
+  // Rule 2: Any sender with valid tracking — tracking is a strong logistics signal
+  if (hasValidTracking) return true;
+
+  // Rule 3: Known merchant with valid order AND expected date — reliable, skip Haiku
+  if (isKnownMerchant && hasValidOrder && expectedDate) return true;
+
+  // Rule 4: Known merchant with valid order — reliable, skip Haiku
+  //         (even without expected date; can be filled by resync later)
+  if (isKnownMerchant && hasValidOrder) return true;
+
+  // For domain-derived merchants or platform senders: always send to Haiku
   return false;
 }
 
 // ─── Haiku batch (only for ambiguous emails) ──────────────────────────────
 
-const HAIKU_SYSTEM = `You are a delivery email parser. You receive emails numbered [1], [2], etc.
+const HAIKU_SYSTEM = `You are a delivery email parser specialized in Indian e-commerce. You receive emails numbered [1], [2], etc.
 Each email starts with "Today: YYYY-MM-DD" — use this to resolve relative dates.
+
+IMPORTANT INDIAN CONTEXT:
+- Carriers: Delhivery, BlueDart, DTDC, Ekart, Xpressbees, Shadowfax, Ecom Express, India Post, Shiprocket, Pickrr, Amazon Logistics, Flipkart Logistics
+- Merchants: Amazon India, Flipkart, Myntra, Nykaa, Meesho, AJIO, Tata Cliq, Snapdeal, Swiggy, Blinkit, Zepto, BigBasket, Netmeds, Pharmeasy, 1mg, Mamaearth, Lenskart, Boat, Noise, Sugar, Wow Skin Science, FirstCry, Purplle, Bewakoof, The Souled Store, Bombay Shaving Company, Mokobara, Blue Tokai, Sleepy Owl — plus thousands of D2C/Shopify brands
+- Order formats: Amazon (000-0000000-0000000), Flipkart (OD123456789), Myntra (alphanumeric), Shopify (#1234 or store-prefixed like LG-1234)
+- Tracking formats: Delhivery/BlueDart/DTDC (numeric 6-20 digits), Ekart (FM1234567890), Xpressbees (alphanumeric), Shiprocket (numeric)
+- Price symbol: ₹ (Indian Rupee)
+- Payment: UPI, PhonePe, Paytm, Google Pay, COD (cash on delivery), net banking
+
 Return ONLY a JSON array, one object per email, same order:
 [{"stage":"order_confirmed"|"processing"|"dispatched"|"in_transit"|"out_for_delivery"|"delivered"|"failed"|"return_initiated"|"returned","merchant":string,"carrier":string|null,"orderNumber":string|null,"trackingNumber":string|null,"expectedDate":string|null,"productName":string|null}]
 
 Stage: read subject and main body only — ignore nav bars, footers, link text.
-- dispatched: shipped/on its way/arriving soon
+- dispatched: shipped/on its way/arriving soon/dispatched via carrier
 - delivered: actually received by customer
-expectedDate: IMPORTANT — scan the full body for any delivery estimate: "Arriving [day]", "Expected by [date]", "Estimated delivery [date]", "Get it by [date]", "Delivers by [date]". Return as YYYY-MM-DD using the provided Today date to resolve day names and relative dates. Return null only if truly not found.
-productName: the main product ordered (e.g. "Raspberry Pi Zero 2W", "Nike Air Max 90"). Use the order summary/line items in the body. If multiple items, name the first or most prominent. Return null only if truly not found.
+- return_initiated: return/exchange request created
+- returned: refund processed or return completed
+
+merchant: the actual store/brand name, not the email platform. For Shopify emails (sender is shopifyemail.com or myshopify.com), extract the real store name from the email header, greeting, logo, or footer. For marketplace (Amazon/Flipkart/Myntra), use the marketplace name.
+
+carrier: the shipping carrier name if mentioned (Delhivery, BlueDart, DTDC, Ekart, Xpressbees, Shadowfax, Ecom Express, India Post, Shiprocket, etc.) or null.
+
+orderNumber: extract from order number patterns — #XXXX, Order #XXXX, Order ID: XXXX, Order No. XXXX, OD123456 (Flipkart), 000-0000000-0000000 (Amazon), or any alphanumeric identifier near "order" text. Format may have slashes (MD/26-27/709527) or dashes (LG-1234-5678). Return as-is.
+
+trackingNumber: AWB/waybill/tracking/consignment number. Indian carriers use: numeric 6-20 digits (Delhivery, BlueDart, DTDC), alphanumeric (Ekart: FM + digits, Xpressbees: letters+digits), or India Post format. Return as-is.
+
+expectedDate: IMPORTANT — scan the full body for any delivery estimate: "Arriving [day]", "Expected by [date]", "Estimated delivery [date]", "Get it by [date]", "Delivers by [date]", "Delivery by [date]", "Will be delivered by [date]". Return as YYYY-MM-DD using the provided Today date to resolve day names and relative dates. Return null only if truly not found.
+
+productName: the main product ordered (e.g. "Raspberry Pi Zero 2W", "Nike Air Max 90", "Cotton Kurta Set"). Use the order summary/line items in the body. If multiple items, name the first or most prominent. Return null only if truly not found.
+
 Return ONLY the JSON array.`;
 
 async function haikuBatch(emails, tzOffsetMin) {
@@ -459,13 +537,23 @@ function quick_merchant(from) {
 }
 
 function normalizeMerchant(name, from) {
-  // For known merchants (Amazon, Flipkart, etc.), regex detection wins
   const detected = detectMerchant(from);
-  if (detected) return detected;
-  // For carrier senders (Delhivery, ShipTrackr, etc.), prefer Haiku's answer
+
+  // Known marketplace/merchant domains (Amazon, Flipkart, Myntra, etc.)
+  // — the domain IS the merchant, so regex detection wins.
+  if (detected) {
+    // Platform senders (Shopify, WooCommerce, etc.) — the domain is NOT the merchant.
+    // Haiku extracts the real store name from the email body. Prefer Haiku.
+    if (PLATFORM_DOMAINS.has(detected) && name && name !== 'Unknown') return name;
+    return detected;
+  }
+
+  // Carrier senders (Delhivery, BlueDart, etc.) — the domain is the carrier, not merchant.
+  // Prefer Haiku's merchant detection, fall back to domain guess.
   if (isCarrierSender(from)) return name || 'Unknown';
-  // For other unknown senders, prefer Haiku's answer if available
-  return name || detectMerchant(from) || 'Unknown';
+
+  // Unknown sender — prefer Haiku, fall back to domain extraction.
+  return name || 'Unknown';
 }
 
 // Single-email interface for resync
@@ -478,8 +566,19 @@ async function parseEmail(email, tzOffsetMin) {
 // the actual product name and store name (for platform senders like Shopify).
 const DEEP_ENRICH_SYSTEM = `Extract details from this order confirmation email.
 Return ONLY valid JSON: {"productName":string|null,"storeName":string|null}
-productName: the specific product ordered (e.g. "Raspberry Pi Zero 2W", "2x20 Male Header Pins", "Nike Air Max 90"). Read order line items or product title in the body. First/most prominent if multiple. null if truly absent.
-storeName: the actual brand or store name when the sender is a platform like Shopify (look for the store name in the email sender display name, greeting, header image alt text, or footer). Return null for well-known marketplaces (Amazon, Flipkart, Myntra, Nykaa, etc.) — only return a value for independent/D2C stores.
+
+productName: the specific product ordered (e.g. "Raspberry Pi Zero 2W", "2x20 Male Header Pins", "Nike Air Max 90", "Cotton Kurta Set"). Read order line items or product title in the body. First/most prominent if multiple. null if truly absent.
+
+storeName (IMPORTANT for Shopify/Shopifyemail emails): Shopify sends order confirmations for thousands of Indian D2C brands. The sender says "Shopify" but the actual store is in the email — look for the store name in:
+- The email header/sender display name (e.g. "Lagavi" in "Lagavi via Shopify")
+- The greeting ("Welcome to Lagavi", "Thank you for shopping at Lagavi")
+- The header logo/ image alt text
+- The footer/store address ("Lagavi, 123 Main St...")
+- Order page links (lagavi.com/orders/...)
+- Reply-to email domain (support@lagavi.in)
+
+Return the real D2C store name (e.g. "Lagavi", "Miduty", "Bombay Shaving Company"), NOT "Shopify". Return null ONLY for well-known marketplaces where the store name adds no value (Amazon, Flipkart, Myntra, Nykaa, etc.).
+
 Return ONLY the JSON object, no other text.`;
 
 async function deepEnrichEmail({ from, subject, snippet, body }) {

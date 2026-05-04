@@ -240,22 +240,27 @@ function extractOrderNumber(text, hint) {
 
   // 3. Explicit prefix + keyword: "order number 12345", "Order No. 12345",
   //    "Order ID: ABC-123", "booking ref XYZ789", "order number:12345" etc.
-  //    Handles all spacing/punctuation: "order  no :  12345" → matches
   const explicit = text.match(/\b(?:order|booking|receipt)[\s#:./-]*(?:number|no|num|id|ref(?:erence)?)[.\s#:/-]*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (explicit && isValidOrderNumber(explicit[1])) return explicit[1];
 
-  // 4. Hash shorthand with optional spacing: "order#1234", "order # 1234",
-  //    "order #12345", "receipt #ABC-123", "booking #XYZ789"
+  // 4. Hash shorthand: "order#1234", "order # 1234", "order #12345",
+  //    "receipt #ABC-123", "booking #XYZ789"
   const hashShorthand = text.match(/\b(?:order|booking|receipt|ref)\s*#*?\s*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (hashShorthand && isValidOrderNumber(hashShorthand[1])) return hashShorthand[1];
 
-  // 5. Standalone hash: "#XXXXX" — strong signal when it looks like an identifier
+  // 5. Bare "Order XXXX" / "Order: XXXX" without keyword —
+  //    catches D2C formats like "Order MD/26-27/709527 confirmed",
+  //    "Order confirmed: ABC123", "Order: LG-1234"
+  //    Only matches when followed by a strong identifier pattern (letters+digits+slashes)
+  const bare = text.match(/\b(?:order|booking)[\s#:./-]+([A-Z]{1,4}[\/\-]?\d[\d\/\-]{4,25})\b/i);
+  if (bare && isValidOrderNumber(bare[1])) return bare[1];
+
+  // 6. Standalone hash: "#XXXXX" — strong signal when it looks like an identifier
   const hash = text.match(/#\s*([A-Za-z0-9\-_/]{4,30})\b/i);
   if (hash && isValidOrderNumber(hash[1])) return hash[1];
 
-  // 6. Loose "Order" keyword + nearby alphanumeric — for D2C formats like
+  // 7. Loose "Order" keyword + nearby alphanumeric — for D2C formats like
   //    "Lagavi — Your order details: LG123456" or "Order ABC-XYZ confirmed"
-  //    This is the catch-all for non-standard D2C/Shopify order formats.
   const loose = text.match(/\b(?:order|booking)[^.!?\n]{0,60}?\b([A-Za-z]{1,4}[\s\-_]?\d{3,12})\b/i);
   if (loose && isValidOrderNumber(loose[1].replace(/[\s\-_]/g, '-'))) return loose[1].replace(/[\s\-_]/g, '-');
 

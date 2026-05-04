@@ -29,9 +29,11 @@ const MERCHANT_EMOJI: Record<string, string> = {
 
 function formatDate(ts: number): string {
   if (!ts) return '';
-  const diff = Math.floor((Date.now() - ts) / 86400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
+  const then = new Date(ts); then.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - then.getTime()) / 86400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
   return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 

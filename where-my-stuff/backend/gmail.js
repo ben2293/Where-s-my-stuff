@@ -178,7 +178,7 @@ function extractProductImage(html) {
   if (!html) return null;
 
   // Truncate at promotional sections — only scan the order-summary portion of the email.
-  const PROMO_SPLITTER = /related\s+products|you\s+might\s+also\s+like|recommended\s+for\s+you|customers\s+also\s+bought|complete\s+your\s+purchase|more\s+items\s+to\s+consider|based\s+on\s+your\s+viewing/i;
+  const PROMO_SPLITTER = /related\s+products|you\s+might\s+also\s+like|recommended\s+for\s+you|customers\s+also\s+bought|complete\s+your\s+purchase|more\s+items\s+to\s+consider|based\s+on\s+your\s+viewing|frequently\s+bought\s+together|customers\s+who\s+bought|sponsored\s+products|learn\s+more\s+about\s+this|get\s+it\s+by|what\s+other\s+items/i;
   const promoMatch = html.match(PROMO_SPLITTER);
   const scanHtml = promoMatch ? html.slice(0, promoMatch.index) : html;
 
@@ -219,7 +219,9 @@ function extractProductImage(html) {
     const aspect = hasDims ? w / h : 1;
     const aspectScore = 1 - Math.min(Math.abs(aspect - 1), 1);
     const sizeScore = hasDims ? w * h : 150 * 150; // neutral fallback
-    candidates.push({ src, w, h, score: sizeScore * (1 + aspectScore) });
+    // Position bonus: images appearing earlier in HTML are more likely to be the actual product
+    const positionBonus = 1 / (1 + m.index / 2000);
+    candidates.push({ src, w, h, score: sizeScore * (1 + aspectScore) * positionBonus });
   }
   if (!candidates.length) return null;
 
@@ -248,12 +250,12 @@ function extractProductImage(html) {
   for (const pattern of CDN_PRIORITY) {
     const matches = candidates.filter(c => pattern.test(c.src));
     if (matches.length) {
-      matches.sort((a, b) => b.score - a.score);
+      matches.sort((a, b) => a.src.localeCompare(b.src) || b.score - a.score);
       return matches[0].src;
     }
   }
 
-  // Largest + most square image otherwise
+  // Largest + most square image otherwise, with position bonus
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0].src;
 }
@@ -388,7 +390,7 @@ function isDeliveryEmail(subject = '', snippet = '', body = '') {
   return (ecom >= 2) || (logi >= 2) || (ecom >= 1 && logi >= 1);
 }
 
-async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
+async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
   const client = createOAuthClient();
   client.setCredentials({
     access_token: userTokens.access_token,
@@ -462,7 +464,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
     body: e.body, orderNumberHint: e.orderNumberHint,
     receivedMs: e.dateStr ? new Date(e.dateStr).getTime() : Date.now(),
   }));
-  const parsed = await parseEmailsBatch(parseInputs);
+  const parsed = await parseEmailsBatch(parseInputs, tzOffsetMin);
 
   // Step 3: assemble results and apply sender-based stage floors
   // REQUIREMENT: every package MUST have an order number OR tracking number.
@@ -510,7 +512,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = []) {
   return { packages: results, freshAccessToken };
 }
 
-async function resyncPackage(userTokens, pkg) {
+async function resyncPackage(userTokens, pkg, tzOffsetMin) {
   const client = createOAuthClient();
   client.setCredentials({
     access_token: userTokens.access_token,
@@ -552,7 +554,7 @@ async function resyncPackage(userTokens, pkg) {
         if (!isPlausibleDelivery(subject, snippet)) continue;
       }
       const { text: body, imageUrl, price, orderNumberHint } = extractBodyAndImage(msg.data.payload);
-      const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() });
+      const parsed = await parseEmail({ from, subject, snippet, body, orderNumberHint, receivedMs: dateStr ? new Date(dateStr).getTime() : Date.now() }, tzOffsetMin);
       const fromEmail = extractEmail(from);
       const stageFloor = SENDER_STAGE_FLOOR[fromEmail] ?? -1;
       if (stageFloor > parsed.stage) {

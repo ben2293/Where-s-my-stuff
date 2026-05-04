@@ -19,7 +19,7 @@ function toISO(d) {
 
 // Resolve a raw date string to YYYY-MM-DD using receivedMs as the anchor for relative expressions.
 // Returns null if unparseable.
-function resolveToISO(raw, receivedMs) {
+function resolveToISO(raw, receivedMs, tzOffsetMin) {
   if (!raw) return null;
   const s = raw.trim();
   const lower = s.toLowerCase();
@@ -27,8 +27,17 @@ function resolveToISO(raw, receivedMs) {
   // Already absolute ISO
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
-  const ref = new Date(receivedMs || Date.now());
-  ref.setHours(0, 0, 0, 0);
+  // Compute reference date in user's local timezone if offset provided
+  let ref;
+  if (tzOffsetMin != null) {
+    const nowMs = receivedMs || Date.now();
+    const localMs = nowMs - tzOffsetMin * 60000;
+    ref = new Date(localMs);
+    ref.setUTCHours(0, 0, 0, 0);
+  } else {
+    ref = new Date(receivedMs || Date.now());
+    ref.setHours(0, 0, 0, 0);
+  }
 
   if (lower === 'today')    return toISO(ref);
   if (lower === 'tomorrow') { const d = new Date(ref); d.setDate(d.getDate() + 1); return toISO(d); }
@@ -140,28 +149,28 @@ function extractOrderNumber(text, hint) {
   return hint || null;
 }
 
-function extractExpectedDate(text, receivedMs) {
+function extractExpectedDate(text, receivedMs, tzOffsetMin) {
   const m1 = text.match(/(?:delivery|expected|estimated)\s+by[:\s]+([A-Za-z]+(?:day)?,\s*[A-Za-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
-  if (m1) return resolveToISO(m1[1].trim(), receivedMs);
+  if (m1) return resolveToISO(m1[1].trim(), receivedMs, tzOffsetMin);
   // "Arriving tomorrow 8 am" / "Arriving Monday, 21 Apr"
   const m2 = text.match(/arriving?\s+(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
-  if (m2) return resolveToISO(m2[1].trim(), receivedMs);
+  if (m2) return resolveToISO(m2[1].trim(), receivedMs, tzOffsetMin);
   const m3 = text.match(/(?:get it|delivers?)\s+by\s+((?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s+[A-Za-z]+\s+\d+)?|tomorrow|today)/i);
-  if (m3) return resolveToISO(m3[1].trim(), receivedMs);
+  if (m3) return resolveToISO(m3[1].trim(), receivedMs, tzOffsetMin);
   const m4 = text.match(/expected\s+(tomorrow|today|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)[a-z]*(?:\s*,?\s*[A-Za-z]+\s*\d*)?)/i);
-  if (m4) return resolveToISO(m4[1].trim(), receivedMs);
+  if (m4) return resolveToISO(m4[1].trim(), receivedMs, tzOffsetMin);
   return null;
 }
 
 // ─── Fast regex pass ───────────────────────────────────────────────────────
 
-function quickParse({ from, subject, snippet, orderNumberHint, receivedMs }) {
+function quickParse({ from, subject, snippet, orderNumberHint, receivedMs, tzOffsetMin }) {
   const shortText = `${subject} ${snippet}`;
   const stageResult = detectStage(shortText);
   const merchant = detectMerchant(from);
   const trackingNumber = extractTracking(shortText);
   const orderNumber = extractOrderNumber(shortText, orderNumberHint);
-  const expectedDate = extractExpectedDate(shortText, receivedMs || Date.now());
+  const expectedDate = extractExpectedDate(shortText, receivedMs || Date.now(), tzOffsetMin);
   return { stageResult, merchant, trackingNumber, orderNumber, expectedDate };
 }
 
@@ -188,8 +197,18 @@ expectedDate: IMPORTANT — scan the full body for any delivery estimate: "Arriv
 productName: the main product ordered (e.g. "Raspberry Pi Zero 2W", "Nike Air Max 90"). Use the order summary/line items in the body. If multiple items, name the first or most prominent. Return null only if truly not found.
 Return ONLY the JSON array.`;
 
-async function haikuBatch(emails) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+async function haikuBatch(emails, tzOffsetMin) {
+  // tzOffsetMin is the user's timezone offset in minutes (e.g., -330 for IST UTC+5:30)
+  // Positive = west of UTC, negative = east of UTC (matches JS getTimezoneOffset())
+  const now = new Date();
+  let todayStr;
+  if (tzOffsetMin != null) {
+    // Shift UTC time by offset to get user's local date
+    const localMs = now.getTime() - tzOffsetMin * 60000;
+    todayStr = new Date(localMs).toISOString().slice(0, 10);
+  } else {
+    todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  }
   const prompt = emails.map((e, i) => [
     `[${i + 1}] Today: ${todayStr}`,
     `From: ${e.from}`,
@@ -233,14 +252,14 @@ const BATCH_DELAY_MS = 300;
 
 // Main export: parse a list of emails efficiently
 // Regex handles clear-cut cases; Haiku only gets ambiguous ones in batches
-async function parseEmailsBatch(emailList) {
+async function parseEmailsBatch(emailList, tzOffsetMin) {
   const results = new Array(emailList.length);
   const needsHaiku = []; // { idx, email }
 
   // Pass 1: fast regex
   for (let i = 0; i < emailList.length; i++) {
     const e = emailList[i];
-    const quick = quickParse(e);
+    const quick = quickParse({ ...e, tzOffsetMin });
     if (isResolved(quick)) {
       results[i] = {
         stage: quick.stageResult.stage,
@@ -262,7 +281,7 @@ async function parseEmailsBatch(emailList) {
   for (let i = 0; i < needsHaiku.length; i += BATCH_SIZE) {
     if (i > 0) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
     const batch = needsHaiku.slice(i, i + BATCH_SIZE);
-    const haikuResults = await haikuBatch(batch.map(x => x.email));
+    const haikuResults = await haikuBatch(batch.map(x => x.email), tzOffsetMin);
     for (let j = 0; j < batch.length; j++) {
       const { idx, email } = batch[j];
       const h = haikuResults[j];
@@ -271,7 +290,8 @@ async function parseEmailsBatch(emailList) {
         // Haiku returns expectedDate as YYYY-MM-DD; if not, search subject+snippet+body
         const expectedDate = h.expectedDate || extractExpectedDate(
           `${email.subject} ${email.snippet} ${(email.body || '').slice(0, 1500)}`,
-          email.receivedMs
+          email.receivedMs,
+          tzOffsetMin
         );
         results[idx] = {
           stage, status,
@@ -284,7 +304,7 @@ async function parseEmailsBatch(emailList) {
         };
       } else {
         // Haiku failed — best-effort fallback
-        const quick = quickParse(email);
+        const quick = quickParse({ ...email, tzOffsetMin });
         results[idx] = {
           stage: quick.stageResult?.stage ?? 0,
           status: quick.stageResult?.status ?? 'Order Confirmed',
@@ -317,8 +337,8 @@ function normalizeMerchant(name, from) {
 }
 
 // Single-email interface for resync
-async function parseEmail(email) {
-  const results = await parseEmailsBatch([email]);
+async function parseEmail(email, tzOffsetMin) {
+  const results = await parseEmailsBatch([email], tzOffsetMin);
   return results[0];
 }
 

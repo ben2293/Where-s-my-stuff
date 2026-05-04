@@ -18,7 +18,7 @@ interface Props {
 
 const HERO: Record<number, string> = {
   0: 'Order placed', 1: 'Being prepared', 2: 'On its way',
-  3: 'On its way', 4: 'Arriving today', 5: 'Delivered', 6: 'Delivery failed',
+  3: 'In transit', 4: 'Out for delivery', 5: 'Delivered', 6: 'Delivery failed',
   7: 'Return initiated', 8: 'Returned',
 };
 
@@ -236,7 +236,7 @@ export default function PackageCard({ pkg, onMute, onMarkDelivered, onResync, on
             </Badge>
           ) : (
             <Badge variant="secondary" className="text-[11px] font-semibold border-0" style={{ background: `${color}20`, color }}>
-              {hero}
+              {countdown?.text || hero}
             </Badge>
           )}
         </div>

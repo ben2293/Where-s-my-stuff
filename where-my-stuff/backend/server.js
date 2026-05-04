@@ -100,12 +100,15 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       return res.status(401).json({ error: 'No Gmail access. Please sign in again.' });
     }
 
+    const tzOffsetMin = typeof req.body?.tzOffsetMin === 'number' ? req.body.tzOffsetMin : undefined;
+
     const userBlocks = await all('SELECT type, value FROM user_blocks WHERE user_email = ?', [userEmail]);
 
     const { packages, freshAccessToken } = await syncGmail(
       { access_token: user.access_token, refresh_token: user.refresh_token },
       user.last_sync || 0,
-      userBlocks
+      userBlocks,
+      tzOffsetMin
     );
 
     if (freshAccessToken && freshAccessToken !== user.access_token) {
@@ -172,14 +175,14 @@ app.post('/api/sync', requireAuth, async (req, res) => {
     for (const pkg of activePkgs) {
       try {
         const tokens = { access_token: user.access_token, refresh_token: user.refresh_token };
-        const { package: p, freshAccessToken: fat, body: resyncBody } = await resyncPackage(tokens, pkg);
+        const { package: p, freshAccessToken: fat, body: resyncBody } = await resyncPackage(tokens, pkg, tzOffsetMin);
         if (fat && fat !== user.access_token) {
           await run('UPDATE users SET access_token = ? WHERE email = ?', [fat, userEmail]);
           user.access_token = fat;
         }
         const newDate = p?.expectedDate
-          || extractExpectedDate(`${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date)
-          || (resyncBody ? extractExpectedDate(resyncBody, pkg.received_date) : null);
+          || extractExpectedDate(`${pkg.subject || ''} ${pkg.snippet || ''}`, pkg.received_date, tzOffsetMin)
+          || (resyncBody ? extractExpectedDate(resyncBody, pkg.received_date, tzOffsetMin) : null);
         if (newDate) await run('UPDATE packages SET expected_date = ? WHERE id = ?', [newDate, pkg.id]);
       } catch (e) {
         console.warn(`[sync] date re-verify failed for pkg ${pkg.id}:`, e.message);
@@ -204,10 +207,12 @@ app.post('/api/packages/:id/resync', requireAuth, async (req, res) => {
   if (!pkg) return res.status(404).json({ error: 'Not found' });
   const user = req.user;
   if (!user?.access_token) return res.status(401).json({ error: 'No Gmail access' });
+  const tzOffsetMin = typeof req.body?.tzOffsetMin === 'number' ? req.body.tzOffsetMin : undefined;
   try {
     const { package: p, freshAccessToken, body: resyncBody } = await resyncPackage(
       { access_token: user.access_token, refresh_token: user.refresh_token },
-      pkg
+      pkg,
+      tzOffsetMin
     );
     if (freshAccessToken) await run('UPDATE users SET access_token = ? WHERE email = ?', [freshAccessToken, req.userEmail]);
     if (p) {

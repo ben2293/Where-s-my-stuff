@@ -120,8 +120,9 @@ export default function App() {
   async function handleSync() {
     if (syncing) return;
     setSyncing(true); setSyncError(null);
+    const tzOffsetMin = new Date().getTimezoneOffset();
     try {
-      const res = await authFetch('/api/sync', { method: 'POST' });
+      const res = await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
       const data = await res.json();
       if (!res.ok) setSyncError(data.error || 'Sync failed');
       else {
@@ -184,8 +185,9 @@ export default function App() {
   }
 
   async function handleResync(id: number) {
+    const tzOffsetMin = new Date().getTimezoneOffset();
     try {
-      const res = await authFetch(`/api/packages/${id}/resync`, { method: 'POST' });
+      const res = await authFetch(`/api/packages/${id}/resync`, { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
       const data = await res.json();
       if (res.ok && data.package) {
         setPackages(prev => prev.map(p => p.id === id ? data.package : p));

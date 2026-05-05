@@ -178,7 +178,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -419,19 +419,19 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     onClick={() => {
                       if (displayLimit < rest.length) {
                         setDisplayLimit(d => d + 10);
-                      } else if (packages.length < pkgTotal) {
+                      } else {
                         onLoadMore(10);
                         setDisplayLimit(d => d + 10);
                       }
                     }}
-                    disabled={loadingMore || (displayLimit >= rest.length && packages.length >= pkgTotal)}
-                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 disabled:cursor-default"
+                    disabled={loadingMore}
+                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                   >
-                    {loadingMore ? 'Loading…' : displayLimit < rest.length
-                      ? `Show 10 more · ${rest.length - displayLimit} remaining`
-                      : packages.length < pkgTotal
-                      ? `Load 10 more · ${pkgTotal - packages.length} remaining`
-                      : `All ${rest.length} past order${rest.length !== 1 ? 's' : ''} loaded`}
+                    {loadingMore
+                      ? 'Loading…'
+                      : displayLimit < rest.length
+                      ? `Show 10 more past orders`
+                      : 'Load 10 more past orders'}
                   </button>
                 </section>
               )}

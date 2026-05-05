@@ -415,18 +415,18 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  {packages.length < pkgTotal && (
-                    <button
-                      onClick={() => {
-                        onLoadMore();
-                        setDisplayLimit(d => d + 200);
-                      }}
-                      disabled={loadingMore}
-                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
-                    >
-                      {loadingMore ? 'Loading…' : `Show more past orders · ${pkgTotal - packages.length} remaining`}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      onLoadMore();
+                      setDisplayLimit(d => d + 200);
+                    }}
+                    disabled={loadingMore}
+                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Loading…' : packages.length < pkgTotal
+                      ? `Show more past orders · ${pkgTotal - packages.length} remaining`
+                      : 'Check for more past orders'}
+                  </button>
                 </section>
               )}
             </div>

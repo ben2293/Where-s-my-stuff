@@ -419,7 +419,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     onClick={() => {
                       if (displayLimit < rest.length) {
                         setDisplayLimit(d => d + 10);
-                      } else if (packages.length < pkgTotal) {
+                      } else {
                         onLoadMore(10);
                         setDisplayLimit(d => d + 10);
                       }

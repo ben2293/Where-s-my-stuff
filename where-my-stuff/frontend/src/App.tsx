@@ -127,7 +127,7 @@ export default function App() {
       if (!res.ok) setSyncError(data.error || 'Sync failed');
       else {
         setPackages(data.packages);
-        setPkgTotal(data.packages.length);
+        setPkgTotal(data.total ?? data.packages.length);
         const now = Date.now();
         localStorage.setItem('wms_last_sync', String(now));
         setUser(u => u ? { ...u, last_sync: now } : u);

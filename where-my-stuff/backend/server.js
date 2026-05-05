@@ -259,8 +259,9 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT 200',
       [userEmail]
     );
+    const row = await get('SELECT COUNT(*)::int as n FROM packages WHERE user_email = ?', [req.userEmail]);
 
-    res.json({ success: true, newCount: packages.length, packages: all_pkgs });
+    res.json({ success: true, newCount: packages.length, packages: all_pkgs, total: row?.n ?? all_pkgs.length });
   } catch (e) {
     console.error('Sync error:', e.message);
     res.status(500).json({ error: e.message || 'Sync failed' });

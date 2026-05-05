@@ -419,9 +419,12 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     onClick={() => {
                       if (displayLimit < rest.length) {
                         setDisplayLimit(d => d + 10);
-                      } else {
+                      } else if (packages.length < pkgTotal) {
                         onLoadMore(10);
                         setDisplayLimit(d => d + 10);
+                      } else {
+                        // Refresh from API — may find new packages since last load
+                        onLoadMore(10);
                       }
                     }}
                     disabled={loadingMore}
@@ -431,7 +434,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                       ? `Show 10 more · ${rest.length - displayLimit} remaining`
                       : packages.length < pkgTotal
                       ? `Load 10 more from inbox · ${pkgTotal - packages.length} remaining`
-                      : 'All past orders loaded'}
+                      : 'Refresh past orders'}
                   </button>
                 </section>
               )}

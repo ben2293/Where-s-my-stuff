@@ -255,8 +255,9 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       }
     }
 
+    // Return only first 20 packages — pagination handles the rest via /api/packages
     const all_pkgs = await all(
-      'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT 200',
+      'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT 20',
       [userEmail]
     );
     const row = await get('SELECT COUNT(*)::int as n FROM packages WHERE user_email = ?', [req.userEmail]);

@@ -178,7 +178,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal: _pt, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -414,15 +414,13 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  {packages.length < pkgTotal && (
-                    <button
-                      onClick={() => onLoadMore(10)}
-                      disabled={loadingMore}
-                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
-                    >
-                      {loadingMore ? 'Loading…' : `Load more past orders · ${pkgTotal - packages.length} in DB`}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => onLoadMore(10)}
+                    disabled={loadingMore}
+                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                  >
+                    {loadingMore ? 'Loading…' : `Load 10 more past orders`}
+                  </button>
                 </section>
               )}
             </div>

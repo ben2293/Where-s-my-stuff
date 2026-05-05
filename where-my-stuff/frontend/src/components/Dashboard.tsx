@@ -414,15 +414,22 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  {packages.length < pkgTotal && (
-                    <button
-                      onClick={() => onLoadMore(10)}
-                      disabled={loadingMore}
-                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
-                    >
-                      {loadingMore ? 'Loading…' : `Load more past orders · ${pkgTotal - packages.length} remaining`}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (packages.length < pkgTotal) {
+                        onLoadMore(10);
+                      } else {
+                        onSync();
+                      }
+                    }}
+                    disabled={loadingMore || syncing}
+                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                  >
+                    {syncing ? 'Syncing Gmail…' : loadingMore ? 'Loading…'
+                      : packages.length < pkgTotal
+                      ? `Load more past orders · ${pkgTotal - packages.length} in DB`
+                      : 'Sync Gmail for more past orders'}
+                  </button>
                 </section>
               )}
             </div>

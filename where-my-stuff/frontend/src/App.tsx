@@ -49,7 +49,6 @@ export default function App() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading]     = useState(true);
   const [syncing, setSyncing]     = useState(false);
-  const [syncingPast, setSyncingPast] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<{ id: number; type: string; value: string; reason: string }[]>([]);
@@ -95,7 +94,7 @@ export default function App() {
 
   async function loadPackages() {
     try {
-      const res = await authFetch('/api/packages?limit=20&offset=0');
+      const res = await authFetch('/api/packages?limit=200&offset=0');
       if (res.ok) {
         const data = await res.json();
         setPackages(data.packages);
@@ -166,40 +165,6 @@ export default function App() {
     const now = Date.now();
     localStorage.setItem('wms_last_sync', String(now));
     setUser(u => u ? { ...u, last_sync: now } : u);
-  }
-
-  async function handleSyncPast() {
-    if (syncingPast) return;
-    console.log('syncPast: starting Gmail scan');
-    setSyncingPast(true);
-
-    const poll = setInterval(async () => {
-      try {
-        const r = await authFetch('/api/packages?limit=20&offset=0');
-        if (r.ok) {
-          const d = await r.json();
-          setPackages(d.packages);
-          setPkgTotal(d.total ?? d.packages.length);
-        }
-      } catch {}
-    }, 3000);
-
-    const tzOffsetMin = new Date().getTimezoneOffset();
-    try {
-      await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
-    } catch {}
-
-    clearInterval(poll);
-    setSyncingPast(false);
-
-    try {
-      const r = await authFetch('/api/packages?limit=200&offset=0');
-      if (r.ok) {
-        const d = await r.json();
-        setPackages(d.packages);
-        setPkgTotal(d.total ?? d.packages.length);
-      }
-    } catch {}
   }
 
   async function handleReport(id: number) {
@@ -358,7 +323,7 @@ export default function App() {
       <Toaster position="bottom-center" richColors closeButton />
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncingPast={syncingPast} syncError={syncError} onSync={handleSync} onSyncPast={handleSyncPast} onCleanse={handleCleanse} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} onMoveToActive={handleMoveToActive} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onCleanse={handleCleanse} onLoadMore={loadMorePackages} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} onMoveToActive={handleMoveToActive} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
       }
     </>
   );

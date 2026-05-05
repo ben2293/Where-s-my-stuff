@@ -14,10 +14,8 @@ interface Props {
   pkgTotal: number;
   loadingMore: boolean;
   syncing: boolean;
-  syncingPast: boolean;
   syncError: string | null;
   onSync: () => void;
-  onSyncPast: () => void;
   onCleanse: () => void;
   onLoadMore: (pageSize?: number) => void;
   onLogout: () => void;
@@ -180,7 +178,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loadingMore: _lm, syncing, syncingPast, syncError, onSync, onSyncPast, onCleanse, onLoadMore: _olm, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -416,19 +414,15 @@ export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loading
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  <button
-                    onClick={() => { console.log('past orders scan triggered'); onSyncPast(); }}
-                    disabled={syncingPast}
-                    className="relative mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 overflow-hidden"
-                  >
-                    {syncingPast && (
-                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
-                        style={{ animation: 'shine 1.5s ease-in-out infinite' }} />
-                    )}
-                    {syncingPast
-                      ? `Scanning… ${rest.length} delivered found so far`
-                      : `${rest.length} past order${rest.length !== 1 ? 's' : ''} · Scan for more`}
-                  </button>
+                  {packages.length < pkgTotal && (
+                    <button
+                      onClick={() => onLoadMore(10)}
+                      disabled={loadingMore}
+                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading…' : `Load more past orders · ${pkgTotal - packages.length} in DB`}
+                    </button>
+                  )}
                 </section>
               )}
             </div>

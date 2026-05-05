@@ -519,7 +519,7 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
   const listRes = await gmail.users.messages.list({
     userId: 'me',
     q: `(${DELIVERY_QUERY}) after:${afterSec}`,
-    maxResults: 150,
+    maxResults: 500,
   });
 
   const messages = listRes.data.messages || [];

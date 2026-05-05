@@ -246,38 +246,49 @@ function extractPrice(text) {
     return (n > 0 && n < 500000) ? n : null;
   };
 
-  // ── Detect currency ──
   const hasRupee = /₹|Rs\.?|INR|rupees/i.test(text);
   const hasDollar = /\$|USD|US\s?\$|dollars/i.test(text);
+  const currency = hasDollar && !hasRupee ? 'USD' : 'INR';
+  const symbol = currency === 'USD' ? '\\$' : '₹';
 
-  // ── INR patterns ──
-  if (hasRupee) {
-    // ₹ or Rs prefix
-    const m1 = text.match(/(?:₹|Rs\.?)\s*([\d,]+(?:\.\d{1,2})?)\s*(?:total|paid|charged)/i);
-    if (m1) { const n = parseVal(m1[1]); if (n) return { amount: n, currency: 'INR' }; }
-    // Fallback: ₹ prefix (Amazon-style "₹249 00" superscript artifact)
-    const m2 = text.match(/(?:₹|Rs\.?)\s*([\d,]+)(?:\s+\d{2})?\b/i);
-    if (m2) { const n = parseVal(m2[1]); if (n) return { amount: n, currency: 'INR' }; }
+  // Pattern 1: "Total" / "Grand Total" followed by optional ₹/$ and amount
+  // Matches: "Total: ₹1,799.00", "Grand Total $5.00", "Total ₹ 1,234"
+  const patternTotal = new RegExp(
+    `(?:grand\\s+)?total[^${symbol}\\d\\n]{0,60}(?:${symbol}|Rs\\.?|INR|USD)?\\s*([\\d,]+(?:\\.[\\d]{1,2})?)`,
+    'i'
+  );
+  const m1 = text.match(patternTotal);
+  if (m1) { const n = parseVal(m1[1]); if (n) return { amount: n, currency }; }
+
+  // Pattern 2: "Amount paid" / "Amount charged" / "Order total"
+  const patternAmount = new RegExp(
+    `(?:amount\\s+(?:paid|charged|due)|order\\s+total)[^${symbol}\\d\\n]{0,60}(?:${symbol}|Rs\\.?|INR|USD)?\\s*([\\d,]+(?:\\.[\\d]{1,2})?)`,
+    'i'
+  );
+  const m2 = text.match(patternAmount);
+  if (m2) { const n = parseVal(m2[1]); if (n) return { amount: n, currency }; }
+
+  // Pattern 3: ₹/$ before amount, then "total" nearby
+  const patternBefore = new RegExp(
+    `(?:${symbol}|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.[\\d]{1,2})?)\\s*(?:total|paid|charged|grand)`,
+    'i'
+  );
+  const m3 = text.match(patternBefore);
+  if (m3) { const n = parseVal(m3[1]); if (n) return { amount: n, currency }; }
+
+  // Pattern 4: Find the LAST ₹/$ amount in the text (totals tend to be at the end)
+  const allAmounts = new RegExp(
+    `(?:${symbol}|Rs\\.?|INR|USD)\\s*([\\d,]+(?:\\.[\\d]{1,2})?)`,
+    'gi'
+  );
+  let lastMatch = null;
+  let match;
+  while ((match = allAmounts.exec(text)) !== null) {
+    lastMatch = match;
   }
-
-  // ── USD patterns ──
-  if (hasDollar) {
-    // $ prefix
-    const m1 = text.match(/\$\s*([\d,]+(?:\.\d{1,2})?)/i);
-    if (m1) { const n = parseVal(m1[1]); if (n) return { amount: n, currency: 'USD' }; }
-    // "USD" or "US$" prefix
-    const m2 = text.match(/(?:USD|US\$)\s*([\d,]+(?:\.\d{1,2})?)/i);
-    if (m2) { const n = parseVal(m2[1]); if (n) return { amount: n, currency: 'USD' }; }
-  }
-
-  // ── Generic "total" pattern (defaults to INR for Indian context) ──
-  const t1 = text.match(/(?:grand\s+)?total[^$₹\d\n]{0,80}(?:₹|Rs\.?|INR|\$|USD)?\s*([\d,]+(?:\.\d{1,2})?)/i);
-  if (t1) {
-    const n = parseVal(t1[1]);
-    if (n) {
-      const ctx = text.slice(Math.max(0, t1.index - 20), t1.index + t1[0].length + 20);
-      return { amount: n, currency: /\$|USD/i.test(ctx) ? 'USD' : 'INR' };
-    }
+  if (lastMatch) {
+    const n = parseVal(lastMatch[1]);
+    if (n) return { amount: n, currency };
   }
 
   return null;

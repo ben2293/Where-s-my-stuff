@@ -415,9 +415,9 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  {(displayLimit < rest.length || packages.length < pkgTotal) && (
+                  {rest.length > 0 && (
                     <button
-                       onClick={() => {
+                      onClick={() => {
                         if (displayLimit < rest.length) {
                           setDisplayLimit(d => d + 15);
                         } else {
@@ -428,7 +428,11 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                       disabled={loadingMore}
                       className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                     >
-                      {loadingMore ? 'Loading…' : `Show more · ${(rest.length - displayLimit) > 0 ? rest.length - displayLimit : pkgTotal - packages.length} remaining`}
+                      {loadingMore ? 'Loading…' : displayLimit < rest.length
+                        ? `Show 15 more · ${rest.length - displayLimit} remaining`
+                        : packages.length < pkgTotal
+                        ? `Load more from inbox · ${pkgTotal - packages.length} remaining`
+                        : 'Check for more'}
                     </button>
                   )}
                 </section>

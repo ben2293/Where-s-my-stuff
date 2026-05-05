@@ -182,7 +182,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
-  const [displayLimit, setDisplayLimit] = useState(15);
+  const [displayLimit, setDisplayLimit] = useState(999);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
@@ -415,24 +415,16 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  {rest.length > 0 && (
+                  {packages.length < pkgTotal && (
                     <button
                       onClick={() => {
-                        if (displayLimit < rest.length) {
-                          setDisplayLimit(d => d + 15);
-                        } else {
-                          onLoadMore();
-                          setDisplayLimit(d => d + 15);
-                        }
+                        onLoadMore();
+                        setDisplayLimit(d => d + 200);
                       }}
                       disabled={loadingMore}
                       className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                     >
-                      {loadingMore ? 'Loading…' : displayLimit < rest.length
-                        ? `Show 15 more · ${rest.length - displayLimit} remaining`
-                        : packages.length < pkgTotal
-                        ? `Load more from inbox · ${pkgTotal - packages.length} remaining`
-                        : 'Check for more'}
+                      {loadingMore ? 'Loading…' : `Show more past orders · ${pkgTotal - packages.length} remaining`}
                     </button>
                   )}
                 </section>

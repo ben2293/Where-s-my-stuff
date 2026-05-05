@@ -170,6 +170,7 @@ export default function App() {
 
   async function handleSyncPast() {
     if (syncingPast) return;
+    console.log('syncPast: starting Gmail scan');
     setSyncingPast(true);
 
     const poll = setInterval(async () => {

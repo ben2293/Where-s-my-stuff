@@ -417,7 +417,7 @@ export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loading
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
                   <button
-                    onClick={() => onSyncPast()}
+                    onClick={() => { console.log('past orders scan triggered'); onSyncPast(); }}
                     disabled={syncingPast}
                     className="relative mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 overflow-hidden"
                   >

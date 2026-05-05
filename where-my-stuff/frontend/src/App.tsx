@@ -95,7 +95,7 @@ export default function App() {
 
   async function loadPackages() {
     try {
-      const res = await authFetch('/api/packages?limit=200&offset=0');
+      const res = await authFetch('/api/packages?limit=20&offset=0');
       if (res.ok) {
         const data = await res.json();
         setPackages(data.packages);
@@ -134,8 +134,8 @@ export default function App() {
     // Poll packages during sync so past orders appear as they're found
     const poll = setInterval(async () => {
       try {
-        const r = await authFetch('/api/packages?limit=200&offset=0');
-        if (r.ok) {
+      const r = await authFetch('/api/packages?limit=20&offset=0');
+      if (r.ok) {
           const d = await r.json();
           setPackages(d.packages);
           setPkgTotal(d.total ?? d.packages.length);
@@ -175,7 +175,7 @@ export default function App() {
 
     const poll = setInterval(async () => {
       try {
-        const r = await authFetch('/api/packages?limit=200&offset=0');
+        const r = await authFetch('/api/packages?limit=20&offset=0');
         if (r.ok) {
           const d = await r.json();
           setPackages(d.packages);

@@ -46,9 +46,6 @@ export default function App() {
   const [user, setUser]           = useState<User | null>(null);
   const [packages, setPackages]   = useState<Package[]>([]);
   const [pkgTotal, setPkgTotal]   = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [pastOffset, setPastOffset] = useState(0);
-  const [pastPackages, setPastPackages] = useState<Package[]>([]);
   const [loading, setLoading]     = useState(true);
   const [syncing, setSyncing]     = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -92,20 +89,6 @@ export default function App() {
       const res = await authFetch('/api/blocks');
       if (res.ok) setBlocks(await res.json());
     } catch { /* network error */ }
-  }
-
-  async function loadPastOrders() {
-    if (loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const res = await authFetch(`/api/packages?limit=10&offset=${pastOffset}&stage_min=5`);
-      if (res.ok) {
-        const data = await res.json();
-        setPastPackages(prev => [...prev, ...data.packages]);
-        setPastOffset(prev => prev + data.packages.length);
-      }
-    } catch {}
-    setLoadingMore(false);
   }
 
   async function loadPackages() {
@@ -317,7 +300,7 @@ export default function App() {
       <Toaster position="bottom-center" richColors closeButton />
       {!user
         ? <LoginScreen authError={authError} />
-        : <Dashboard user={user} packages={packages} pastPackages={pastPackages} pkgTotal={pkgTotal} loadingMore={loadingMore} syncing={syncing} syncError={syncError} onSync={handleSync} onCleanse={handleCleanse} onLoadPast={loadPastOrders} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} onMoveToActive={handleMoveToActive} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
+        : <Dashboard user={user} packages={packages} pkgTotal={pkgTotal} syncing={syncing} syncError={syncError} onSync={handleSync} onCleanse={handleCleanse} onLogout={handleLogout} onMarkDelivered={handleMarkDelivered} onResync={handleResync} onReport={handleReport} onMoveToActive={handleMoveToActive} theme={theme} onToggleTheme={toggleTheme} blocks={blocks} onDeleteBlock={handleDeleteBlock} />
       }
     </>
   );

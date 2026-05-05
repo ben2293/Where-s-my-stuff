@@ -11,14 +11,11 @@ import type { User, Package } from '../types';
 interface Props {
   user: User;
   packages: Package[];
-  pastPackages: Package[];
   pkgTotal: number;
-  loadingMore: boolean;
   syncing: boolean;
   syncError: string | null;
   onSync: () => void;
   onCleanse: () => void;
-  onLoadPast: () => void;
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
@@ -179,7 +176,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pastPackages, pkgTotal: _pt, loadingMore, syncing, syncError, onSync, onCleanse, onLoadPast, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal: _pt, syncing, syncError, onSync, onCleanse, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -209,8 +206,7 @@ export default function Dashboard({ user, packages, pastPackages, pkgTotal: _pt,
   };
 
   const isDemo = packages.length === 0 && !user.last_sync;
-  const allPackages = useMemo(() => [...packages, ...pastPackages], [packages, pastPackages]);
-  const source = useMemo(() => isDemo ? DEMO : deduplicate(allPackages), [allPackages, isDemo]);
+  const source = useMemo(() => isDemo ? DEMO : deduplicate(packages), [packages, isDemo]);
 
   const visible = useMemo(() => source.filter(p => {
     if (blacklist.has(p.merchant)) return false;
@@ -416,13 +412,6 @@ export default function Dashboard({ user, packages, pastPackages, pkgTotal: _pt,
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  <button
-                    onClick={onLoadPast}
-                    disabled={loadingMore}
-                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
-                  >
-                    {loadingMore ? 'Loading…' : 'Load 10 more past orders'}
-                  </button>
                 </section>
               )}
             </div>

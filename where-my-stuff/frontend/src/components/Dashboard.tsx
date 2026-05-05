@@ -423,18 +423,17 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                         onLoadMore(10);
                         setDisplayLimit(d => d + 10);
                       } else {
-                        // Refresh from API — may find new packages since last load
-                        onLoadMore(10);
+                        onSync();
                       }
                     }}
-                    disabled={loadingMore}
+                    disabled={loadingMore || syncing}
                     className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                   >
-                    {loadingMore ? 'Loading…' : displayLimit < rest.length
+                    {syncing ? 'Syncing…' : loadingMore ? 'Loading…' : displayLimit < rest.length
                       ? `Show 10 more · ${rest.length - displayLimit} remaining`
                       : packages.length < pkgTotal
                       ? `Load 10 more from inbox · ${pkgTotal - packages.length} remaining`
-                      : 'Refresh past orders'}
+                      : 'Sync for new past orders'}
                   </button>
                 </section>
               )}

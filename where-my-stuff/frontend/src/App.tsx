@@ -103,25 +103,18 @@ export default function App() {
     } catch { /* network error */ }
   }
 
-  async function loadMorePackages(pageSize = 200) {
+  async function loadMorePackages(pageSize = 200, stageMin?: number) {
     if (loadingMore) return;
     setLoadingMore(true);
     try {
-      console.log('[loadMore] fetching offset=', packages.length, 'limit=', pageSize);
-      const res = await authFetch(`/api/packages?limit=${pageSize}&offset=${packages.length}`);
-      console.log('[loadMore] response ok=', res.ok, 'status=', res.status);
+      const stageParam = stageMin != null ? `&stage_min=${stageMin}` : '';
+      const res = await authFetch(`/api/packages?limit=${pageSize}&offset=${packages.length}${stageParam}`);
       if (res.ok) {
         const data = await res.json();
-        console.log('[loadMore] got', data.packages?.length, 'packages, total=', data.total);
         setPackages(prev => [...prev, ...data.packages]);
         setPkgTotal(data.total);
-      } else {
-        const err = await res.text();
-        console.error('[loadMore] failed:', err);
       }
-    } catch (e) {
-      console.error('[loadMore] network error:', e);
-    }
+    } catch {}
     setLoadingMore(false);
   }
 

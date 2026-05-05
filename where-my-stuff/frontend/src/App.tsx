@@ -177,18 +177,22 @@ export default function App() {
     const poll = setInterval(async () => {
       try {
         const r = await authFetch('/api/packages?limit=200&offset=0');
+        console.log('[syncPast] poll status=', r.status, 'ok=', r.ok);
         if (r.ok) {
           const d = await r.json();
+          console.log('[syncPast] poll got', d.packages?.length, 'pkgs, total=', d.total);
           setPackages(d.packages);
           setPkgTotal(d.total ?? d.packages.length);
         }
-      } catch {}
+      } catch (e) { console.error('[syncPast] poll error:', e); }
     }, 3000);
 
     const tzOffsetMin = new Date().getTimezoneOffset();
     try {
-      await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
-    } catch {}
+      console.log('[syncPast] calling /api/sync');
+      const syncRes = await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
+      console.log('[syncPast] sync status=', syncRes.status, 'ok=', syncRes.ok);
+    } catch (e) { console.error('[syncPast] sync error:', e); }
 
     clearInterval(poll);
     setSyncingPast(false);

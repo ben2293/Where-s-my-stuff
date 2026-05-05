@@ -169,8 +169,10 @@ export default function App() {
   }
 
   async function handleSyncPast() {
+    console.log('[syncPast] called, syncingPast=', syncingPast);
     if (syncingPast) return;
     setSyncingPast(true);
+    console.log('[syncPast] starting poll + sync');
 
     const poll = setInterval(async () => {
       try {

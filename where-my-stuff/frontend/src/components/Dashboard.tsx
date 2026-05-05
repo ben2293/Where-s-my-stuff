@@ -17,7 +17,7 @@ interface Props {
   syncError: string | null;
   onSync: () => void;
   onCleanse: () => void;
-  onLoadMore: () => void;
+  onLoadMore: (pageSize?: number) => void;
   onLogout: () => void;
   onMarkDelivered: (id: number) => void;
   onResync: (id: number) => Promise<void>;
@@ -182,7 +182,7 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
-  const [displayLimit, setDisplayLimit] = useState(999);
+  const [displayLimit, setDisplayLimit] = useState(10);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
@@ -417,14 +417,14 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   </div>
                   <button
                     onClick={() => {
-                      onLoadMore();
-                      setDisplayLimit(d => d + 200);
+                      onLoadMore(10);
+                      setDisplayLimit(d => d + 10);
                     }}
                     disabled={loadingMore}
                     className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                   >
                     {loadingMore ? 'Loading…' : packages.length < pkgTotal
-                      ? `Show more past orders · ${pkgTotal - packages.length} remaining`
+                      ? `Show 10 more past orders · ${pkgTotal - packages.length} remaining`
                       : 'Check for more past orders'}
                   </button>
                 </section>

@@ -103,11 +103,11 @@ export default function App() {
     } catch { /* network error */ }
   }
 
-  async function loadMorePackages() {
+  async function loadMorePackages(pageSize = 200) {
     if (loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await authFetch(`/api/packages?limit=200&offset=${packages.length}`);
+      const res = await authFetch(`/api/packages?limit=${pageSize}&offset=${packages.length}`);
       if (res.ok) {
         const data = await res.json();
         setPackages(prev => [...prev, ...data.packages]);

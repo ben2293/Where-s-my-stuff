@@ -180,7 +180,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncingPast, syncError, onSync, onSyncPast, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loadingMore: _lm, syncing, syncingPast, syncError, onSync, onSyncPast, onCleanse, onLoadMore: _olm, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -417,15 +417,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
                   <button
-                    onClick={() => {
-                      if (packages.length < pkgTotal) {
-                        onLoadMore(10);
-                      } else {
-                        console.log('past orders scan triggered');
-                        onSyncPast();
-                      }
-                    }}
-                    disabled={loadingMore || syncingPast}
+                    onClick={() => { console.log('past orders scan triggered'); onSyncPast(); }}
+                    disabled={syncingPast}
                     className="relative mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 overflow-hidden"
                   >
                     {syncingPast && (
@@ -433,12 +426,8 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                         style={{ animation: 'shine 1.5s ease-in-out infinite' }} />
                     )}
                     {syncingPast
-                      ? `Scanning… ${rest.length} delivered so far`
-                      : loadingMore
-                      ? 'Loading…'
-                      : packages.length < pkgTotal
-                      ? `Load 10 more past orders · ${pkgTotal - packages.length} in DB`
-                      : 'Scan Gmail for more past orders'}
+                      ? `Scanning… ${rest.length} delivered found so far`
+                      : `${rest.length} past order${rest.length !== 1 ? 's' : ''} · Scan for more`}
                   </button>
                 </section>
               )}

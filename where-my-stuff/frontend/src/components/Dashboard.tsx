@@ -417,12 +417,18 @@ export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loading
                     {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
                   <button
-                    onClick={onSyncPast}
+                    onClick={() => {
+                      console.log('[past-orders] button clicked, calling onSyncPast');
+                      onSyncPast();
+                    }}
                     disabled={syncingPast}
                     className="relative mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 overflow-hidden"
                   >
                     {syncingPast && (
-                      <span className="absolute inset-0 animate-shine bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                      <span
+                        className="absolute inset-0 bg-gradient-to-r from-transparent via-border to-transparent"
+                        style={{ animation: 'shine 1.5s ease-in-out infinite' }}
+                      />
                     )}
                     {syncingPast ? 'Scanning Gmail for deliveries…' : 'Scan Gmail for more past orders'}
                   </button>

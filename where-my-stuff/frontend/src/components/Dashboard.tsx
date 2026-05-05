@@ -419,19 +419,19 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                     onClick={() => {
                       if (displayLimit < rest.length) {
                         setDisplayLimit(d => d + 10);
-                      } else {
+                      } else if (packages.length < pkgTotal) {
                         onLoadMore(10);
                         setDisplayLimit(d => d + 10);
                       }
                     }}
-                    disabled={loadingMore}
-                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                    disabled={loadingMore || (displayLimit >= rest.length && packages.length >= pkgTotal)}
+                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50 disabled:cursor-default"
                   >
                     {loadingMore ? 'Loading…' : displayLimit < rest.length
                       ? `Show 10 more · ${rest.length - displayLimit} remaining`
                       : packages.length < pkgTotal
                       ? `Load 10 more · ${pkgTotal - packages.length} remaining`
-                      : `${rest.length} past order${rest.length !== 1 ? 's' : ''} loaded`}
+                      : `All ${rest.length} past order${rest.length !== 1 ? 's' : ''} loaded`}
                   </button>
                 </section>
               )}

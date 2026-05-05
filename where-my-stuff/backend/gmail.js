@@ -516,14 +516,26 @@ async function syncGmail(userTokens, lastSyncMs, userBlocks = [], tzOffsetMin) {
 
   console.log(`[sync] lastSyncMs=${lastSyncMs} afterSec=${afterSec} query=after:${afterSec}`);
 
-  const listRes = await gmail.users.messages.list({
-    userId: 'me',
-    q: `(${DELIVERY_QUERY}) after:${afterSec}`,
-    maxResults: 500,
-  });
+  // Paginate through all Gmail results — never miss an email
+  const messageIds = [];
+  let pageToken = null;
+  let totalMessages = 0;
+  do {
+    const listRes = await gmail.users.messages.list({
+      userId: 'me',
+      q: `(${DELIVERY_QUERY}) after:${afterSec}`,
+      maxResults: 150,
+      pageToken: pageToken || undefined,
+    });
+    const msgs = listRes.data.messages || [];
+    messageIds.push(...msgs.map(m => m.id));
+    totalMessages += msgs.length;
+    pageToken = listRes.data.nextPageToken || null;
+    console.log(`[sync] Gmail page: ${msgs.length} messages, total so far: ${totalMessages}`);
+  } while (pageToken && totalMessages < 500);
 
-  const messages = listRes.data.messages || [];
-  console.log(`[sync] Gmail returned ${messages.length} messages`);
+  const messages = messageIds.map(id => ({ id }));
+  console.log(`[sync] Gmail returned ${messages.length} total messages`);
 
   // Step 1: fetch all raw email data in parallel (10 at a time — Gmail API, not Haiku)
   const rawEmails = [];

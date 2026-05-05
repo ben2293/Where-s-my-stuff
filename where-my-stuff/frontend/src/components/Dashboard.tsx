@@ -417,15 +417,21 @@ export default function Dashboard({ user, packages, pkgTotal, loadingMore, synci
                   </div>
                   <button
                     onClick={() => {
-                      onLoadMore(10);
-                      setDisplayLimit(d => d + 10);
+                      if (displayLimit < rest.length) {
+                        setDisplayLimit(d => d + 10);
+                      } else {
+                        onLoadMore(10);
+                        setDisplayLimit(d => d + 10);
+                      }
                     }}
                     disabled={loadingMore}
                     className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
                   >
-                    {loadingMore ? 'Loading…' : packages.length < pkgTotal
-                      ? `Show 10 more past orders · ${pkgTotal - packages.length} remaining`
-                      : 'Check for more past orders'}
+                    {loadingMore ? 'Loading…' : displayLimit < rest.length
+                      ? `Show 10 more · ${rest.length - displayLimit} remaining`
+                      : packages.length < pkgTotal
+                      ? `Load 10 more from inbox · ${pkgTotal - packages.length} remaining`
+                      : 'All past orders loaded'}
                   </button>
                 </section>
               )}

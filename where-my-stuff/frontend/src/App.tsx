@@ -129,19 +129,42 @@ export default function App() {
     if (syncing) return;
     setSyncing(true); setSyncError(null);
     const tzOffsetMin = new Date().getTimezoneOffset();
+
+    // Poll packages during sync so past orders appear as they're found
+    const poll = setInterval(async () => {
+      try {
+        const r = await authFetch('/api/packages?limit=200&offset=0');
+        if (r.ok) {
+          const d = await r.json();
+          setPackages(d.packages);
+          setPkgTotal(d.total ?? d.packages.length);
+        }
+      } catch {}
+    }, 3000);
+
     try {
       const res = await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
-      const data = await res.json();
-      if (!res.ok) setSyncError(data.error || 'Sync failed');
-      else {
-        setPackages(data.packages);
-        setPkgTotal(data.total ?? data.packages.length);
-        const now = Date.now();
-        localStorage.setItem('wms_last_sync', String(now));
-        setUser(u => u ? { ...u, last_sync: now } : u);
+      if (!res.ok) {
+        const data = await res.json();
+        setSyncError(data.error || 'Sync failed');
       }
     } catch { setSyncError('Network error. Check your connection.'); }
+
+    clearInterval(poll);
     setSyncing(false);
+
+    // Final refresh to get complete picture
+    try {
+      const r = await authFetch('/api/packages?limit=200&offset=0');
+      if (r.ok) {
+        const d = await r.json();
+        setPackages(d.packages);
+        setPkgTotal(d.total ?? d.packages.length);
+      }
+    } catch {}
+    const now = Date.now();
+    localStorage.setItem('wms_last_sync', String(now));
+    setUser(u => u ? { ...u, last_sync: now } : u);
   }
 
   async function handleReport(id: number) {

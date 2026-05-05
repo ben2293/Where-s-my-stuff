@@ -169,30 +169,24 @@ export default function App() {
   }
 
   async function handleSyncPast() {
-    console.log('[syncPast] called, syncingPast=', syncingPast);
     if (syncingPast) return;
     setSyncingPast(true);
-    console.log('[syncPast] starting poll + sync');
 
     const poll = setInterval(async () => {
       try {
         const r = await authFetch('/api/packages?limit=200&offset=0');
-        console.log('[syncPast] poll status=', r.status, 'ok=', r.ok);
         if (r.ok) {
           const d = await r.json();
-          console.log('[syncPast] poll got', d.packages?.length, 'pkgs, total=', d.total);
           setPackages(d.packages);
           setPkgTotal(d.total ?? d.packages.length);
         }
-      } catch (e) { console.error('[syncPast] poll error:', e); }
+      } catch {}
     }, 3000);
 
     const tzOffsetMin = new Date().getTimezoneOffset();
     try {
-      console.log('[syncPast] calling /api/sync');
-      const syncRes = await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
-      console.log('[syncPast] sync status=', syncRes.status, 'ok=', syncRes.ok);
-    } catch (e) { console.error('[syncPast] sync error:', e); }
+      await authFetch('/api/sync', { method: 'POST', body: JSON.stringify({ tzOffsetMin }) });
+    } catch {}
 
     clearInterval(poll);
     setSyncingPast(false);

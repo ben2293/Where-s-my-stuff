@@ -84,11 +84,22 @@ app.post('/auth/logout', async (req, res) => {
 app.get('/api/packages', requireAuth, async (req, res) => {
   const limit  = Math.min(parseInt(req.query.limit  ?? '50', 10) || 50, 200);
   const offset = Math.max(parseInt(req.query.offset ?? '0',  10) || 0,  0);
+  const stageMin = req.query.stage_min != null ? parseInt(req.query.stage_min, 10) : null;
+
+  const whereClause = stageMin != null
+    ? 'user_email = ? AND stage >= ?'
+    : 'user_email = ?';
+  const params = stageMin != null
+    ? [req.userEmail, stageMin, limit, offset]
+    : [req.userEmail, limit, offset];
+
   const pkgs = await all(
-    'SELECT * FROM packages WHERE user_email = ? ORDER BY received_date DESC LIMIT ? OFFSET ?',
-    [req.userEmail, limit, offset]
+    `SELECT * FROM packages WHERE ${whereClause} ORDER BY received_date DESC LIMIT ? OFFSET ?`,
+    params
   );
-  const row = await get('SELECT COUNT(*)::int as n FROM packages WHERE user_email = ?', [req.userEmail]);
+  const countWhere = stageMin != null ? 'user_email = ? AND stage >= ?' : 'user_email = ?';
+  const countParams = stageMin != null ? [req.userEmail, stageMin] : [req.userEmail];
+  const row = await get(`SELECT COUNT(*)::int as n FROM packages WHERE ${countWhere}`, countParams);
   res.json({ packages: pkgs, total: row?.n ?? 0, offset, limit });
 });
 

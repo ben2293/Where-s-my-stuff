@@ -178,11 +178,10 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pkgTotal, loadingMore, syncing, syncError, onSync, onCleanse, onLoadMore, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
-  const [displayLimit, setDisplayLimit] = useState(10);
   const [query, setQuery]             = useState('');
   const [blacklist, setBlacklist]     = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem('wms_blacklist') ?? '[]')); }
@@ -239,8 +238,8 @@ export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loading
 
   const count = (f: StageFilter) => applyStageFilter(visible, f).length;
 
-  function changeFilter(f: StageFilter) { setStageFilter(f); setDisplayLimit(8); }
-  function changeDateRange(r: DateRange) { setDateRange(r); setDisplayLimit(8); }
+  function changeFilter(f: StageFilter) { setStageFilter(f); }
+  function changeDateRange(r: DateRange) { setDateRange(r); }
 
   return (
     <div className="min-h-screen bg-background">
@@ -413,26 +412,17 @@ export default function Dashboard({ user, packages, pkgTotal: _pkgTotal, loading
                     </button>
                   </div>
                   <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
-                    {rest.slice(0, displayLimit).map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
+                    {rest.map(pkg => <CompactPackageRow key={pkg.id} pkg={pkg} onMute={mute} onReport={onReport} onMoveToActive={onMoveToActive} />)}
                   </div>
-                  <button
-                    onClick={() => {
-                      if (displayLimit < rest.length) {
-                        setDisplayLimit(d => d + 10);
-                      } else {
-                        onLoadMore(10);
-                        setDisplayLimit(d => d + 10);
-                      }
-                    }}
-                    disabled={loadingMore}
-                    className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
-                  >
-                    {loadingMore
-                      ? 'Loading…'
-                      : displayLimit < rest.length
-                      ? `Show 10 more past orders`
-                      : 'Load 10 more past orders'}
-                  </button>
+                  {packages.length < pkgTotal && (
+                    <button
+                      onClick={() => onLoadMore(10)}
+                      disabled={loadingMore}
+                      className="mt-3 w-full py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-xl transition-all disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading…' : `Load more past orders · ${pkgTotal - packages.length} remaining`}
+                    </button>
+                  )}
                 </section>
               )}
             </div>

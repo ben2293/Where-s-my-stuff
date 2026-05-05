@@ -11,6 +11,7 @@ import type { User, Package } from '../types';
 interface Props {
   user: User;
   packages: Package[];
+  pastPackages: Package[];
   pkgTotal: number;
   loadingMore: boolean;
   syncing: boolean;
@@ -178,7 +179,7 @@ function applyDateRange(pkgs: Package[], range: DateRange): Package[] {
 
 const DATE_RANGE_LABELS: Record<DateRange, string> = { all: 'All time', '7d': '7 days', '30d': '30 days', '90d': '90 days' };
 
-export default function Dashboard({ user, packages, pkgTotal: _pt, loadingMore, syncing, syncError, onSync, onCleanse, onLoadPast, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
+export default function Dashboard({ user, packages, pastPackages, pkgTotal: _pt, loadingMore, syncing, syncError, onSync, onCleanse, onLoadPast, onLogout, onMarkDelivered, onResync, onReport, onMoveToActive, theme, onToggleTheme, blocks, onDeleteBlock }: Props) {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [dateRange, setDateRange]     = useState<DateRange>('all');
   const [sortOrder, setSortOrder]     = useState<SortOrder>('newest');
@@ -208,7 +209,8 @@ export default function Dashboard({ user, packages, pkgTotal: _pt, loadingMore, 
   };
 
   const isDemo = packages.length === 0 && !user.last_sync;
-  const source = useMemo(() => isDemo ? DEMO : deduplicate(packages), [packages, isDemo]);
+  const allPackages = useMemo(() => [...packages, ...pastPackages], [packages, pastPackages]);
+  const source = useMemo(() => isDemo ? DEMO : deduplicate(allPackages), [allPackages, isDemo]);
 
   const visible = useMemo(() => source.filter(p => {
     if (blacklist.has(p.merchant)) return false;
